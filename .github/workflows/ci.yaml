@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        go: ['1.25']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Check formatting
+        run: test -z "$(go fmt ./...)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          # Use goinstall to ensure it is built with the runner's Go version (1.25)
+          # this fixes the "Go version used to build golangci-lint is lower than targeted Go version" error
+          install-mode: goinstall
+          args: --out-format=colored-line-number
+
+      - name: Verify build
+        run: go build ./...
+
+      - name: Run tests
+        run: go test ./... -v -race -cover
+
+      - name: Run govulncheck
+        if: matrix.go == '1.25' # Run only once on the latest version to save time
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          
+          # Run and capture output to a file
+          govulncheck ./... > vuln_output.txt 2>&1 || export VULN_FOUND=true
+          
+          # Create a Job Summary
+          echo "### 🛡️ Govulncheck Scan Results" >> $GITHUB_STEP_SUMMARY
+          if [ "$VULN_FOUND" = "true" ]; then
+            echo "::warning title=Vulnerability Scan::Potential vulnerabilities found. See Job Summary for details."
+            echo "⚠️ **Vulnerabilities detected!**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat vuln_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No known vulnerabilities found." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+

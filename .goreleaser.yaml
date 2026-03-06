@@ -1,0 +1,58 @@
+version: 2
+
+project_name: jwt-tool
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: jwt-tool
+    main: ./cmd/jwt-tool/
+    binary: jwt-tool
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    # This handles your requirement: zip for windows, tar.gz for others
+    formats:
+      - tar.gz
+      - zip
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: alessandrocaglio
+    name: jwt-tool
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+# dockers_v2:
+#   - id: katalog
+#     images:
+#       - "quay.io/acaglio/jwt-tool"
+#     tags:
+#       - "{{ .Tag }}"
+#       - latest
+#     platforms:
+#       - linux/amd64
+#       - linux/arm64
+#     dockerfile: Containerfile
