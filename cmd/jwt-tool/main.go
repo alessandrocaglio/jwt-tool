@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/cobra"
 	"jwt-tool/internal/formatter"
+	"jwt-tool/internal/keygen"
 	"jwt-tool/internal/remote"
 	"jwt-tool/internal/resolver"
 	"jwt-tool/internal/verifier"
@@ -21,6 +22,12 @@ var (
 	pemPath      string
 	jwksPath     string
 	leeway       string
+
+	// Keygen flags
+	kgAlg   string
+	kgBits  int
+	kgCurve string
+	kgFile  string
 )
 
 func main() {
@@ -124,7 +131,18 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 	verifyCmd.Flags().StringVar(&jwksPath, "jwks", "", "Path or URL to JWKS")
 	verifyCmd.Flags().StringVar(&leeway, "leeway", "0s", "Clock skew tolerance (e.g. 60s)")
 
-	rootCmd.AddCommand(decodeCmd, verifyCmd)
+	keygenCmd := &cobra.Command{
+		Use:   "keygen",
+		Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
+		Run:   runKeygen,
+	}
+
+	keygenCmd.Flags().StringVarP(&kgAlg, "alg", "a", "rsa", "Algorithm: rsa or ecdsa")
+	keygenCmd.Flags().IntVarP(&kgBits, "bits", "b", 2048, "RSA bit size: 2048, 3072, 4096")
+	keygenCmd.Flags().StringVarP(&kgCurve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
+	keygenCmd.Flags().StringVarP(&kgFile, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
+
+	rootCmd.AddCommand(decodeCmd, verifyCmd, keygenCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -151,6 +169,44 @@ func runDecode(cmd *cobra.Command, args []string) {
 	}
 
 	render(info, nil)
+}
+
+func runKeygen(cmd *cobra.Command, args []string) {
+	var kp *keygen.KeyPair
+	var err error
+
+	switch kgAlg {
+	case "rsa":
+		kp, err = keygen.GenerateRSA(kgBits)
+	case "ecdsa":
+		kp, err = keygen.GenerateECDSA(kgCurve)
+	default:
+		fmt.Fprintf(os.Stderr, "Unsupported algorithm: %s\n", kgAlg)
+		os.Exit(1)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to generate keys: %v\n", err)
+		os.Exit(1)
+	}
+
+	if kgFile != "" {
+		privFile := kgFile
+		pubFile := kgFile + ".pub"
+
+		if err := os.WriteFile(privFile, kp.PrivatePEM, 0600); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to write private key: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.WriteFile(pubFile, kp.PublicPEM, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to write public key: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Keys saved to %s and %s\n", privFile, pubFile)
+	} else {
+		fmt.Print(string(kp.PrivatePEM))
+		fmt.Print(string(kp.PublicPEM))
+	}
 }
 
 func render(info interface{}, message *string) {
