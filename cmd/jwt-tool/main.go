@@ -273,9 +273,9 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 
 	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd, keycloakLoginCmd)
 	keygenCmd := &cobra.Command{
-	        Use:   "keygen",
-	        Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
-	        Run:   runKeygen,
+		Use:   "keygen",
+		Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
+		Run:   runKeygen,
 	}
 
 	keygenCmd.Flags().StringVarP(&kgAlg, "alg", "a", "rsa", "Algorithm: rsa or ecdsa")
