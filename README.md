@@ -97,17 +97,16 @@ jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o tab
 jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o openid
 ```
 
-#### Token Introspection
+#### Token Login
 ```bash
-# Introspect a token (requires client credentials)
-jwt-tool keycloak introspect <TOKEN> \
-  --url https://keycloak.example.com \
-  --realm myrealm \
-  --client-id my-client \
-  --client-secret my-secret
+# Get an access token using client credentials (prints token string only by default)
+jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
 
-# Human-readable table output
-jwt-tool keycloak introspect <TOKEN> ... -o table
+# Get an access token using password grant
+jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret --username jdoe --password pass
+
+# Display full response details in a table
+jwt-tool keycloak login ... -o table
 ```
 
 ---

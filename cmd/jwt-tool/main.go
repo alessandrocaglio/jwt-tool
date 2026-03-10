@@ -226,7 +226,52 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 	keycloakIntrospectCmd.Flags().StringVar(&clientID, "client-id", "", "Keycloak Client ID")
 	keycloakIntrospectCmd.Flags().StringVar(&clientSecret, "client-secret", "", "Keycloak Client Secret")
 
-	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd)
+	var username, password, scope string
+	keycloakLoginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Fetch an access token from Keycloak",
+		Run: func(cmd *cobra.Command, args []string) {
+			if keycloakURL == "" || keycloakRealm == "" || clientID == "" || clientSecret == "" {
+				fmt.Fprintf(os.Stderr, "Error: --url, --realm, --client-id, and --client-secret are required\n")
+				os.Exit(1)
+			}
+
+			opts := keycloak.LoginOptions{
+				BaseURL:      keycloakURL,
+				Realm:        keycloakRealm,
+				ClientID:     clientID,
+				ClientSecret: clientSecret,
+				Username:     username,
+				Password:     password,
+				Scope:        scope,
+			}
+
+			resp, err := keycloak.Login(opts)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error performing login: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Special behavior: if output is not set (default json) but we are in a terminal,
+			// we might want just the token. But let's follow the plan:
+			// Default: print only access token string if not -o json or -o table
+			if cmd.Flag("output").Changed {
+				render(resp, nil)
+			} else {
+				fmt.Println(resp.AccessToken)
+			}
+		},
+	}
+
+	keycloakLoginCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
+	keycloakLoginCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
+	keycloakLoginCmd.Flags().StringVar(&clientID, "client-id", "", "Keycloak Client ID")
+	keycloakLoginCmd.Flags().StringVar(&clientSecret, "client-secret", "", "Keycloak Client Secret")
+	keycloakLoginCmd.Flags().StringVar(&username, "username", "", "Username (for password grant)")
+	keycloakLoginCmd.Flags().StringVar(&password, "password", "", "Password (for password grant)")
+	keycloakLoginCmd.Flags().StringVar(&scope, "scope", "openid", "Token scope")
+
+	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd, keycloakLoginCmd)
 	rootCmd.AddCommand(decodeCmd, verifyCmd, keycloakCmd)
 	keygenCmd := &cobra.Command{
 		Use:   "keygen",
@@ -315,6 +360,8 @@ func render(info interface{}, message *string) {
 			formatter.PrintKeycloakTable(discovery)
 		} else if introspection, ok := info.(models.IntrospectionResponse); ok {
 			formatter.PrintIntrospectionTable(introspection)
+		} else if tokenResp, ok := info.(*models.TokenResponse); ok {
+			formatter.PrintLoginTable(tokenResp)
 		} else {
 			// Fallback
 			out, err := json.MarshalIndent(info, "", "  ")
