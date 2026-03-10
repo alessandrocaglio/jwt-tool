@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"jwt-tool/pkg/models"
@@ -31,6 +32,50 @@ func PrintTokenSummary(info *models.TokenInfo) {
 	} else {
 		color.New(color.FgRed).Println("Missing")
 	}
+}
+
+// PrintKeycloakTable prints a human-readable table of the Keycloak discovery document.
+func PrintKeycloakTable(discovery *models.KeycloakDiscovery) {
+	color.New(color.Bold, color.FgCyan).Println("--- IDENTITY ---")
+	fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint("Issuer"), discovery.Issuer)
+
+	fmt.Println()
+
+	color.New(color.Bold, color.FgCyan).Println("--- ENDPOINTS ---")
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetCenterSeparator("")
+	table.SetColumnSeparator("")
+	table.SetRowSeparator("")
+	table.SetHeaderLine(false)
+	table.SetBorder(false)
+	table.SetTablePadding("	") // pad with tabs
+	table.SetNoWhiteSpace(true)
+
+	endpoints := [][]string{
+		{"JWKS URI", discovery.JwksURI},
+		{"Token", discovery.TokenEndpoint},
+		{"Userinfo", discovery.UserinfoEndpoint},
+		{"Introspection", discovery.IntrospectionEndpoint},
+		{"Authorization", discovery.AuthorizationEndpoint},
+	}
+
+	for _, e := range endpoints {
+		table.Append([]string{
+			color.New(color.FgYellow).Sprint(e[0]),
+			e[1],
+		})
+	}
+	table.Render()
+
+	fmt.Println()
+
+	color.New(color.Bold, color.FgCyan).Println("--- CAPABILITIES ---")
+	fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint("Grant Types"), strings.Join(discovery.GrantTypesSupported, ", "))
+	fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint("Signing Algs"), strings.Join(discovery.IDTokenSigningAlgValuesSupported, ", "))
 }
 
 func printTable(data map[string]interface{}) {
