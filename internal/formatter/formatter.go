@@ -160,6 +160,36 @@ func PrintIntrospectionTable(response models.IntrospectionResponse) {
 	}
 }
 
+// PrintLoginTable prints a human-readable summary of the login response.
+func PrintLoginTable(resp *models.TokenResponse) {
+	color.New(color.Bold, color.FgGreen).Println("Login: SUCCESS ✅")
+	fmt.Println()
+
+	color.New(color.Bold, color.FgCyan).Println("--- TOKENS ---")
+	fmt.Printf("%s:\n%s\n\n", color.New(color.FgYellow).Sprint("Access Token"), resp.AccessToken)
+
+	if resp.RefreshToken != "" {
+		fmt.Printf("%s:\n%s\n\n", color.New(color.FgYellow).Sprint("Refresh Token"), resp.RefreshToken)
+	}
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetAutoWrapText(false)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetCenterSeparator("")
+	table.SetColumnSeparator("")
+	table.SetRowSeparator("")
+	table.SetHeaderLine(false)
+	table.SetBorder(false)
+	table.SetTablePadding("	")
+	table.SetNoWhiteSpace(true)
+
+	table.Append([]string{color.New(color.FgYellow).Sprint("Expires In"), fmt.Sprintf("%ds", resp.ExpiresIn)})
+	table.Append([]string{color.New(color.FgYellow).Sprint("Token Type"), resp.TokenType})
+	table.Append([]string{color.New(color.FgYellow).Sprint("Scope"), resp.Scope})
+
+	table.Render()
+}
+
 func printTable(data map[string]interface{}) {
 	table := tablewriter.NewWriter(os.Stdout)
 	//table.SetHeader([]string{"Key", "Value"})
