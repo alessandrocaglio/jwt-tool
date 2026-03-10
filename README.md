@@ -10,7 +10,7 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 - **Flexible Input (The Resolver Pattern):** Read tokens or keys from direct strings, local files (`@path`), or `stdin` (`-`).
 - **Signature Verification:** Supports HMAC (HS256/384/512), RSA (RS256/384/512), and ECDSA (ES256/384/512).
 - **JWKS Integration:** Fetch and validate against local or remote JSON Web Key Sets (JWKS).
-- **Keycloak Integration:** Easily fetch OIDC discovery information from Keycloak realms.
+- **Keycloak Integration:** Easily fetch OIDC discovery information or introspect tokens from Keycloak realms.
 - **Smart Output:** Default machine-readable **JSON** output, with a beautiful colorized **Table** view for humans.
 - **Timestamp Awareness:** Automatically converts `exp`, `iat`, and `nbf` claims into human-readable date-time strings.
 - **Security Hardened:** Explicitly rejects `none` algorithms and protects against key confusion attacks.
@@ -82,7 +82,7 @@ jwt-tool keygen -a ecdsa -c P384 -f mykey
 # Results in 'mykey' (private) and 'mykey.pub' (public)
 ```
 
-### 3. Keycloak Integration
+### 4. Keycloak Integration
 Fetch OIDC discovery information or introspect a token from a Keycloak realm.
 
 #### Discovery Info
@@ -112,8 +112,6 @@ jwt-tool keycloak introspect <TOKEN> ... -o table
 
 ---
 
----
-
 ## 📊 Output Formats
 
 Toggle between formats using the `-o` or `--output` flag.
@@ -140,9 +138,21 @@ Toggle between formats using the `-o` or `--output` flag.
 - `--jwks <uri|path>`: Path or URL to a JWKS.
 - `--leeway <duration>`: Clock skew tolerance (e.g., `1m`, `30s`).
 
+### `keygen` Flags
+- `-a, --alg <string>`: Algorithm: `rsa` (default) or `ecdsa`.
+- `-b, --bits <int>`: RSA bit size: `2048`, `3072`, `4096`.
+- `-c, --curve <string>`: ECDSA curve: `P256`, `P384`, `P521`.
+- `-f, --file <path>`: Save to file (creates `.pub` for public key).
+
 ### `keycloak info` Flags
 - `--url <string>`: Keycloak base URL.
 - `--realm <string>`: Keycloak realm name.
+
+### `keycloak introspect` Flags
+- `--url <string>`: Keycloak base URL.
+- `--realm <string>`: Keycloak realm name.
+- `--client-id <string>`: Keycloak Client ID.
+- `--client-secret <string>`: Keycloak Client Secret.
 
 ---
 
