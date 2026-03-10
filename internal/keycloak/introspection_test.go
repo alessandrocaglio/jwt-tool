@@ -97,7 +97,9 @@ func TestIntrospectionResponse_IsActive(t *testing.T) {
 
 	for _, tt := range tests {
 		var resp map[string]interface{}
-		json.Unmarshal([]byte(tt.data), &resp)
+		if err := json.Unmarshal([]byte(tt.data), &resp); err != nil {
+			t.Fatalf("failed to unmarshal test data %s: %v", tt.data, err)
+		}
 		ir := models.IntrospectionResponse(resp)
 		if ir.IsActive() != tt.expected {
 			t.Errorf("IsActive() for %s = %v, want %v", tt.data, ir.IsActive(), tt.expected)
