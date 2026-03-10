@@ -12,7 +12,7 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 - **JWKS Integration:** Fetch and validate against local or remote JSON Web Key Sets (JWKS).
 - **Keycloak Integration:** Easily fetch OIDC discovery information or introspect tokens from Keycloak realms.
 - **Smart Output:** Default machine-readable **JSON** output, with a beautiful colorized **Table** view for humans.
-- **Timestamp Awareness:** Automatically converts `exp`, `iat`, and `nbf` claims into human-readable date-time strings.
+- **Timestamp Awareness:** Automatically converts `exp`, `iat`, `nbf`, `auth_time`, and `updated_at` claims into human-readable date-time strings.
 - **Security Hardened:** Explicitly rejects `none` algorithms and protects against key confusion attacks.
 
 ---
@@ -109,6 +109,18 @@ jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --cli
 jwt-tool keycloak login ... -o table
 ```
 
+#### Token Introspection
+```bash
+# Introspect a token (requires client credentials)
+jwt-tool keycloak introspect <TOKEN> --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
+
+# From a file
+jwt-tool keycloak introspect @token.jwt --url ...
+
+# Human-readable status and details
+jwt-tool keycloak introspect <TOKEN> ... -o table
+```
+
 ---
 
 ## 📊 Output Formats
@@ -129,9 +141,10 @@ Toggle between formats using the `-o` or `--output` flag.
 - `-o, --output <string>`: Output format. Options: `json` (default), `table`, `openid`.
 
 ### `decode` Flags
-- *None (inherits global flags)*
+- *None (inherits global flags). Usage: `jwt-tool decode [token|-|@file]`*
 
 ### `verify` Flags
+- *Usage: `jwt-tool verify [token|-|@file] [flags]`*
 - `--secret <string>`: Symmetric secret for HMAC.
 - `--pem <path>`: Path to RSA/ECDSA public key file (`@path`).
 - `--jwks <uri|path>`: Path or URL to a JWKS.
@@ -141,17 +154,27 @@ Toggle between formats using the `-o` or `--output` flag.
 - `-a, --alg <string>`: Algorithm: `rsa` (default) or `ecdsa`.
 - `-b, --bits <int>`: RSA bit size: `2048`, `3072`, `4096`.
 - `-c, --curve <string>`: ECDSA curve: `P256`, `P384`, `P521`.
-- `-f, --file <path>`: Save to file (creates `.pub` for public key).
+- `-f, --file <path>`: Save to file (creates `.pub` for public key). **If omitted, prints both private and public keys to stdout.**
 
 ### `keycloak info` Flags
 - `--url <string>`: Keycloak base URL.
 - `--realm <string>`: Keycloak realm name.
 
 ### `keycloak introspect` Flags
+- *Usage: `jwt-tool keycloak introspect [token|-|@file] [flags]`*
 - `--url <string>`: Keycloak base URL.
 - `--realm <string>`: Keycloak realm name.
 - `--client-id <string>`: Keycloak Client ID.
 - `--client-secret <string>`: Keycloak Client Secret.
+
+### `keycloak login` Flags
+- `--url <string>`: Keycloak base URL.
+- `--realm <string>`: Keycloak realm name.
+- `--client-id <string>`: Keycloak Client ID.
+- `--client-secret <string>`: Keycloak Client Secret.
+- `--username <string>`: Username (for password grant).
+- `--password <string>`: Password (for password grant).
+- `--scope <string>`: Token scope (default: `openid`).
 
 ---
 
