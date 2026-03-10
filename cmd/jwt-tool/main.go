@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/cobra"
 	"jwt-tool/internal/formatter"
+	"jwt-tool/internal/keycloak"
 	"jwt-tool/internal/keygen"
 	"jwt-tool/internal/remote"
 	"jwt-tool/internal/resolver"
@@ -23,6 +24,8 @@ var (
 	jwksPath     string
 	leeway       string
 
+	keycloakURL   string
+	keycloakRealm string
 	// Keygen flags
 	kgAlg   string
 	kgBits  int
@@ -40,7 +43,7 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 		Run:  runDecode,
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format: json or table")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format: json, table, or openid (for keycloak info)")
 
 	decodeCmd := &cobra.Command{
 		Use:   "decode [token|-|@file]",
@@ -131,6 +134,45 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 	verifyCmd.Flags().StringVar(&jwksPath, "jwks", "", "Path or URL to JWKS")
 	verifyCmd.Flags().StringVar(&leeway, "leeway", "0s", "Clock skew tolerance (e.g. 60s)")
 
+	keycloakCmd := &cobra.Command{
+		Use:   "keycloak",
+		Short: "Keycloak integration features",
+	}
+
+	keycloakInfoCmd := &cobra.Command{
+		Use:   "info",
+		Short: "Fetch and display Keycloak OIDC discovery information",
+		Run: func(cmd *cobra.Command, args []string) {
+			if keycloakURL == "" || keycloakRealm == "" {
+				fmt.Fprintf(os.Stderr, "Error: --url and --realm are required\n")
+				os.Exit(1)
+			}
+
+			if outputFormat == "openid" {
+				data, err := keycloak.FetchDiscoveryRaw(keycloakURL, keycloakRealm)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error fetching discovery document: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Println(string(data))
+				return
+			}
+
+			discovery, err := keycloak.FetchDiscovery(keycloakURL, keycloakRealm)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error fetching discovery document: %v\n", err)
+				os.Exit(1)
+			}
+
+			render(discovery, nil)
+		},
+	}
+
+	keycloakInfoCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
+	keycloakInfoCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
+
+	keycloakCmd.AddCommand(keycloakInfoCmd)
+	rootCmd.AddCommand(decodeCmd, verifyCmd, keycloakCmd)
 	keygenCmd := &cobra.Command{
 		Use:   "keygen",
 		Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
@@ -214,6 +256,8 @@ func render(info interface{}, message *string) {
 	case "table":
 		if tokenInfo, ok := info.(*models.TokenInfo); ok {
 			formatter.PrintTokenSummary(tokenInfo)
+		} else if discovery, ok := info.(*models.KeycloakDiscovery); ok {
+			formatter.PrintKeycloakTable(discovery)
 		} else {
 			// Fallback if not TokenInfo (though current commands only use TokenInfo)
 			out, err := json.MarshalIndent(info, "", "  ")

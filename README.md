@@ -10,6 +10,7 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 - **Flexible Input (The Resolver Pattern):** Read tokens or keys from direct strings, local files (`@path`), or `stdin` (`-`).
 - **Signature Verification:** Supports HMAC (HS256/384/512), RSA (RS256/384/512), and ECDSA (ES256/384/512).
 - **JWKS Integration:** Fetch and validate against local or remote JSON Web Key Sets (JWKS).
+- **Keycloak Integration:** Easily fetch OIDC discovery information from Keycloak realms.
 - **Smart Output:** Default machine-readable **JSON** output, with a beautiful colorized **Table** view for humans.
 - **Timestamp Awareness:** Automatically converts `exp`, `iat`, and `nbf` claims into human-readable date-time strings.
 - **Security Hardened:** Explicitly rejects `none` algorithms and protects against key confusion attacks.
@@ -81,6 +82,20 @@ jwt-tool keygen -a ecdsa -c P384 -f mykey
 # Results in 'mykey' (private) and 'mykey.pub' (public)
 ```
 
+### 3. Keycloak Integration
+Fetch OIDC discovery information from a Keycloak realm.
+
+```bash
+# Fetch and display discovery info as JSON (default)
+jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm
+
+# Display as a human-readable table
+jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o table
+
+# Output the raw openid-configuration from the endpoint
+jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o openid
+```
+
 ---
 
 ---
@@ -93,13 +108,14 @@ Toggle between formats using the `-o` or `--output` flag.
 | :--- | :--- | :--- |
 | **JSON** | `-o json` | **(Default)** Indented JSON, perfect for `jq` or scripting. |
 | **Table** | `-o table` | Colorized, human-friendly table with date-time conversions. |
+| **OpenID** | `-o openid` | Raw `openid-configuration` JSON from the server (for `keycloak info`). |
 
 ---
 
 ## 📑 CLI Reference
 
 ### Global Flags
-- `-o, --output <string>`: Output format. Options: `json` (default), `table`.
+- `-o, --output <string>`: Output format. Options: `json` (default), `table`, `openid`.
 
 ### `decode` Flags
 - *None (inherits global flags)*
@@ -109,6 +125,10 @@ Toggle between formats using the `-o` or `--output` flag.
 - `--pem <path>`: Path to RSA/ECDSA public key file (`@path`).
 - `--jwks <uri|path>`: Path or URL to a JWKS.
 - `--leeway <duration>`: Clock skew tolerance (e.g., `1m`, `30s`).
+
+### `keycloak info` Flags
+- `--url <string>`: Keycloak base URL.
+- `--realm <string>`: Keycloak realm name.
 
 ---
 
