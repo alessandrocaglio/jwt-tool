@@ -17,3 +17,15 @@ type KeycloakDiscovery struct {
 	RegistrationEndpoint              string   `json:"registration_endpoint"`
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
 }
+
+// IntrospectionResponse represents the exact response from the introspection endpoint.
+// We use map[string]interface{} to preserve all fields for the JSON output.
+type IntrospectionResponse map[string]interface{}
+
+// IsActive returns the 'active' status of the token.
+func (ir IntrospectionResponse) IsActive() bool {
+	if active, ok := ir["active"].(bool); ok {
+		return active
+	}
+	return false
+}
