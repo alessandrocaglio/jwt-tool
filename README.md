@@ -83,8 +83,9 @@ jwt-tool keygen -a ecdsa -c P384 -f mykey
 ```
 
 ### 3. Keycloak Integration
-Fetch OIDC discovery information from a Keycloak realm.
+Fetch OIDC discovery information or introspect a token from a Keycloak realm.
 
+#### Discovery Info
 ```bash
 # Fetch and display discovery info as JSON (default)
 jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm
@@ -94,6 +95,19 @@ jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o tab
 
 # Output the raw openid-configuration from the endpoint
 jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o openid
+```
+
+#### Token Introspection
+```bash
+# Introspect a token (requires client credentials)
+jwt-tool keycloak introspect <TOKEN> \
+  --url https://keycloak.example.com \
+  --realm myrealm \
+  --client-id my-client \
+  --client-secret my-secret
+
+# Human-readable table output
+jwt-tool keycloak introspect <TOKEN> ... -o table
 ```
 
 ---

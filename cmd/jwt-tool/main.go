@@ -171,7 +171,62 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 	keycloakInfoCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
 	keycloakInfoCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
 
-	keycloakCmd.AddCommand(keycloakInfoCmd)
+	var clientID, clientSecret string
+	keycloakIntrospectCmd := &cobra.Command{
+		Use:   "introspect [token|-|@file]",
+		Short: "Perform server-side token introspection",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			if keycloakURL == "" || keycloakRealm == "" || clientID == "" || clientSecret == "" {
+				fmt.Fprintf(os.Stderr, "Error: --url, --realm, --client-id, and --client-secret are required\n")
+				os.Exit(1)
+			}
+
+			input := "-"
+			if len(args) > 0 {
+				input = args[0]
+			}
+
+			tokenData, err := resolver.Resolve(input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error resolving token: %v\n", err)
+				os.Exit(1)
+			}
+
+			if outputFormat == "json" {
+				// We must output the EXACT JSON from Keycloak
+				raw, err := keycloak.IntrospectRaw(keycloakURL, keycloakRealm, clientID, clientSecret, string(tokenData))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error performing introspection: %v\n", err)
+					os.Exit(1)
+				}
+				// Pretty print it as per general tool behavior for -o json
+				var pretty json.RawMessage = raw
+				out, err := json.MarshalIndent(pretty, "", "  ")
+				if err != nil {
+					fmt.Println(string(raw)) // Fallback to raw if pretty print fails
+				} else {
+					fmt.Println(string(out))
+				}
+				return
+			}
+
+			response, err := keycloak.Introspect(keycloakURL, keycloakRealm, clientID, clientSecret, string(tokenData))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error performing introspection: %v\n", err)
+				os.Exit(1)
+			}
+
+			render(response, nil)
+		},
+	}
+
+	keycloakIntrospectCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
+	keycloakIntrospectCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
+	keycloakIntrospectCmd.Flags().StringVar(&clientID, "client-id", "", "Keycloak Client ID")
+	keycloakIntrospectCmd.Flags().StringVar(&clientSecret, "client-secret", "", "Keycloak Client Secret")
+
+	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd)
 	rootCmd.AddCommand(decodeCmd, verifyCmd, keycloakCmd)
 	keygenCmd := &cobra.Command{
 		Use:   "keygen",
@@ -258,8 +313,10 @@ func render(info interface{}, message *string) {
 			formatter.PrintTokenSummary(tokenInfo)
 		} else if discovery, ok := info.(*models.KeycloakDiscovery); ok {
 			formatter.PrintKeycloakTable(discovery)
+		} else if introspection, ok := info.(models.IntrospectionResponse); ok {
+			formatter.PrintIntrospectionTable(introspection)
 		} else {
-			// Fallback if not TokenInfo (though current commands only use TokenInfo)
+			// Fallback
 			out, err := json.MarshalIndent(info, "", "  ")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)

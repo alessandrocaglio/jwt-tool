@@ -78,6 +78,88 @@ func PrintKeycloakTable(discovery *models.KeycloakDiscovery) {
 	fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint("Signing Algs"), strings.Join(discovery.IDTokenSigningAlgValuesSupported, ", "))
 }
 
+// PrintIntrospectionTable prints a human-readable table of the introspection response.
+func PrintIntrospectionTable(response models.IntrospectionResponse) {
+	fmt.Print("Status: ")
+	if response.IsActive() {
+		color.New(color.Bold, color.FgGreen).Println("ACTIVE ✅ (Confirmed by Keycloak)")
+	} else {
+		color.New(color.Bold, color.FgRed).Println("INACTIVE ❌")
+	}
+
+	fmt.Println()
+
+	if !response.IsActive() {
+		return
+	}
+
+	color.New(color.Bold, color.FgCyan).Println("--- CORE INFO ---")
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetCenterSeparator("")
+	table.SetColumnSeparator("")
+	table.SetRowSeparator("")
+	table.SetHeaderLine(false)
+	table.SetBorder(false)
+	table.SetTablePadding("	") // pad with tabs
+	table.SetNoWhiteSpace(true)
+
+	// Filter common fields to show in Core Info, others will follow or be skipped if redundant
+	coreFields := []string{"username", "sub", "client_id", "scope", "token_type"}
+	for _, k := range coreFields {
+		if val, ok := response[k]; ok {
+			table.Append([]string{
+				color.New(color.FgYellow).Sprint(k),
+				fmt.Sprintf("%v", val),
+			})
+		}
+	}
+
+	// Add exp if present
+	if exp, ok := response["exp"]; ok {
+		if ts, ok := convertToFloat(exp); ok {
+			displayVal := fmt.Sprintf("%.0f (%s)", ts, time.Unix(int64(ts), 0).Format(time.RFC3339))
+			table.Append([]string{
+				color.New(color.FgYellow).Sprint("exp"),
+				displayVal,
+			})
+		}
+	}
+	table.Render()
+
+	// Show roles if present (Keycloak specific structures)
+	if realmAccess, ok := response["realm_access"].(map[string]interface{}); ok {
+		if roles, ok := realmAccess["roles"].([]interface{}); ok {
+			fmt.Println()
+			color.New(color.Bold, color.FgCyan).Println("--- REALM ACCESS ---")
+			roleStrings := make([]string, 0, len(roles))
+			for _, r := range roles {
+				roleStrings = append(roleStrings, fmt.Sprintf("%v", r))
+			}
+			fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint("Roles"), strings.Join(roleStrings, ", "))
+		}
+	}
+
+	if resourceAccess, ok := response["resource_access"].(map[string]interface{}); ok {
+		fmt.Println()
+		color.New(color.Bold, color.FgCyan).Println("--- RESOURCE ACCESS ---")
+		for client, access := range resourceAccess {
+			if accessMap, ok := access.(map[string]interface{}); ok {
+				if roles, ok := accessMap["roles"].([]interface{}); ok {
+					roleStrings := make([]string, 0, len(roles))
+					for _, r := range roles {
+						roleStrings = append(roleStrings, fmt.Sprintf("%v", r))
+					}
+					fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint(client), strings.Join(roleStrings, ", "))
+				}
+			}
+		}
+	}
+}
+
 func printTable(data map[string]interface{}) {
 	table := tablewriter.NewWriter(os.Stdout)
 	//table.SetHeader([]string{"Key", "Value"})
