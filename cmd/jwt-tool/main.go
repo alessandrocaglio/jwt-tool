@@ -272,11 +272,10 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 	keycloakLoginCmd.Flags().StringVar(&scope, "scope", "openid", "Token scope")
 
 	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd, keycloakLoginCmd)
-	rootCmd.AddCommand(decodeCmd, verifyCmd, keycloakCmd)
 	keygenCmd := &cobra.Command{
-		Use:   "keygen",
-		Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
-		Run:   runKeygen,
+	        Use:   "keygen",
+	        Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
+	        Run:   runKeygen,
 	}
 
 	keygenCmd.Flags().StringVarP(&kgAlg, "alg", "a", "rsa", "Algorithm: rsa or ecdsa")
@@ -284,8 +283,7 @@ By default, it decodes the provided token (or reads from stdin if no argument is
 	keygenCmd.Flags().StringVarP(&kgCurve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
 	keygenCmd.Flags().StringVarP(&kgFile, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
 
-	rootCmd.AddCommand(decodeCmd, verifyCmd, keygenCmd)
-
+	rootCmd.AddCommand(decodeCmd, verifyCmd, keycloakCmd, keygenCmd)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
