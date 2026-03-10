@@ -1,10 +1,9 @@
 # jwt-tool 🛠️
 
-A high-performance, security-first CLI utility for inspecting and verifying JSON Web Tokens (JWT). Built with Go for speed, reliability, and ease of use in both manual workflows and automated pipelines.
+A security-first JWT CLI for developers and platform engineers for inspecting and verifying JSON Web Tokens (JWT). Built with Go for speed, reliability, and ease of use in both manual workflows and automated pipelines.
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/redhat-labs/jwt-tool?color=00ADD8&label=Go&logo=go)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Security: Fast](https://img.shields.io/badge/Performance-%3C50ms-green)](https://github.com/redhat-labs/jwt-tool)
+[![Security: Fast](https://img.shields.io/badge/Performance-%3C50ms-green)](https://github.com/alessandrocaglio/jwt-tool)
 
 ## 🚀 Key Features
 
@@ -38,31 +37,29 @@ sudo mv jwt-tool /usr/local/bin/
 
 ### 1. Decoding (Inspection only)
 Parse the header and payload without performing cryptographic verification.
+`jwt-tool` defaults to this action if no subcommand is provided.
 
 ```bash
-# Default (reads from stdin)
-echo <TOKEN> | jwt-tool decode
+# Default action (direct string)
+jwt-tool <TOKEN>
 
-# Direct string
+# Default action (stdin)
+echo <TOKEN> | jwt-tool
+
+# Explicit subcommand
 jwt-tool decode <TOKEN>
 
 # From a file
 jwt-tool decode @path/to/token.jwt
 
-# From stdin (explicit)
-cat token.txt | jwt-tool decode -
-
 # Human-readable table output
-jwt-tool decode <TOKEN> -o table
+jwt-tool <TOKEN> -o table
 ```
 
 ### 2. Verification
 Cryptographically validate the signature and time-based claims.
 
 ```bash
-# Default (reads from stdin)
-echo <TOKEN> | jwt-tool verify --secret "secret"
-
 # Using a symmetric secret
 jwt-tool verify <TOKEN> --secret "my-super-secret"
 
@@ -71,9 +68,18 @@ jwt-tool verify <TOKEN> --pem @public_key.pem
 
 # Using a remote JWKS endpoint
 jwt-tool verify <TOKEN> --jwks https://auth.example.com/.well-known/jwks.json
+```
 
-# Adding leeway for clock skew (e.g., 60 seconds)
-jwt-tool verify <TOKEN> --secret "secret" --leeway 60s
+### 3. Key Generation
+Generate asymmetric key pairs for JWT signing.
+
+```bash
+# Generate RSA-2048 (prints to stdout)
+jwt-tool keygen
+
+# Generate ECDSA P-384 and save to files
+jwt-tool keygen -a ecdsa -c P384 -f mykey
+# Results in 'mykey' (private) and 'mykey.pub' (public)
 ```
 
 ### 3. Keycloak Integration
@@ -89,6 +95,8 @@ jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o tab
 # Output the raw openid-configuration from the endpoint
 jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o openid
 ```
+
+---
 
 ---
 
