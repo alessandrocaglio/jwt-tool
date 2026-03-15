@@ -377,7 +377,3 @@ func render(info interface{}, message *string) {
 		fmt.Println(string(out))
 	}
 }
-
-func ptr(s string) *string {
-	return &s
-}
