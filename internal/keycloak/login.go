@@ -26,7 +26,7 @@ type LoginOptions struct {
 func Login(opts LoginOptions) (*models.TokenResponse, error) {
 	discovery, err := FetchDiscovery(opts.BaseURL, opts.Realm)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover token endpoint: %w", err)
+		return nil, fmt.Errorf("could not discover token endpoint: %w", err)
 	}
 
 	if discovery.TokenEndpoint == "" {
@@ -51,29 +51,29 @@ func Login(opts LoginOptions) (*models.TokenResponse, error) {
 
 	req, err := http.NewRequest("POST", discovery.TokenEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create login request: %w", err)
+		return nil, fmt.Errorf("could not create login request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send login request: %w", err)
+		return nil, fmt.Errorf("could not send login request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read login response: %w", err)
+		return nil, fmt.Errorf("could not read login response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("login failed: status %d, body: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp models.TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to decode login response: %w", err)
+		return nil, fmt.Errorf("could not decode login response: %w", err)
 	}
 
 	return &tokenResp, nil

@@ -19,13 +19,13 @@ func Resolve(input string) ([]byte, error) {
 	if input == "-" {
 		data, err = io.ReadAll(os.Stdin)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read from stdin: %w", err)
+			return nil, fmt.Errorf("could not read from stdin: %w", err)
 		}
 	} else if strings.HasPrefix(input, "@") {
 		filePath := strings.TrimPrefix(input, "@")
 		data, err = os.ReadFile(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+			return nil, fmt.Errorf("could not read file at %s: %w", filePath, err)
 		}
 	} else {
 		data = []byte(input)

@@ -15,7 +15,7 @@ import (
 func IntrospectRaw(baseURL, realm, clientID, clientSecret, token string) ([]byte, error) {
 	discovery, err := FetchDiscovery(baseURL, realm)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover introspection endpoint: %w", err)
+		return nil, fmt.Errorf("could not discover introspection endpoint: %w", err)
 	}
 
 	if discovery.IntrospectionEndpoint == "" {
@@ -28,7 +28,7 @@ func IntrospectRaw(baseURL, realm, clientID, clientSecret, token string) ([]byte
 
 	req, err := http.NewRequest("POST", discovery.IntrospectionEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create introspection request: %w", err)
+		return nil, fmt.Errorf("could not create introspection request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -36,12 +36,12 @@ func IntrospectRaw(baseURL, realm, clientID, clientSecret, token string) ([]byte
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send introspection request: %w", err)
+		return nil, fmt.Errorf("could not send introspection request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("introspection request failed: status %d", resp.StatusCode)
+		return nil, fmt.Errorf("introspection request failed with status %d", resp.StatusCode)
 	}
 
 	return io.ReadAll(resp.Body)
@@ -56,7 +56,7 @@ func Introspect(baseURL, realm, clientID, clientSecret, token string) (models.In
 
 	var response models.IntrospectionResponse
 	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("failed to decode introspection response: %w", err)
+		return nil, fmt.Errorf("could not decode introspection response: %w", err)
 	}
 
 	return response, nil

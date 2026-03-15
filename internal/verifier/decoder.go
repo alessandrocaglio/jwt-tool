@@ -14,7 +14,7 @@ func Decode(tokenStr string) (*models.TokenInfo, error) {
 	claims := jwt.MapClaims{}
 	token, _, err := parser.ParseUnverified(tokenStr, claims)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		return nil, fmt.Errorf("could not parse token: %w", err)
 	}
 
 	parts := strings.Split(tokenStr, ".")

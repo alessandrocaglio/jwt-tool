@@ -20,13 +20,13 @@ type KeyPair struct {
 func GenerateRSA(bits int) (*KeyPair, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate RSA key: %w", err)
+		return nil, fmt.Errorf("could not generate RSA key: %w", err)
 	}
 
 	// Encode Private Key (PKCS#8)
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal private key: %w", err)
+		return nil, fmt.Errorf("could not marshal private key: %w", err)
 	}
 	privBlock := &pem.Block{
 		Type:  "PRIVATE KEY",
@@ -36,7 +36,7 @@ func GenerateRSA(bits int) (*KeyPair, error) {
 	// Encode Public Key (PKIX)
 	pubBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal public key: %w", err)
+		return nil, fmt.Errorf("could not marshal public key: %w", err)
 	}
 	pubBlock := &pem.Block{
 		Type:  "PUBLIC KEY",
@@ -65,13 +65,13 @@ func GenerateECDSA(curveName string) (*KeyPair, error) {
 
 	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate ECDSA key: %w", err)
+		return nil, fmt.Errorf("could not generate ECDSA key: %w", err)
 	}
 
 	// Encode Private Key (PKCS#8)
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal private key: %w", err)
+		return nil, fmt.Errorf("could not marshal private key: %w", err)
 	}
 	privBlock := &pem.Block{
 		Type:  "PRIVATE KEY",
@@ -81,7 +81,7 @@ func GenerateECDSA(curveName string) (*KeyPair, error) {
 	// Encode Public Key (PKIX)
 	pubBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal public key: %w", err)
+		return nil, fmt.Errorf("could not marshal public key: %w", err)
 	}
 	pubBlock := &pem.Block{
 		Type:  "PUBLIC KEY",

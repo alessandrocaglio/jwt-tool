@@ -21,17 +21,17 @@ func LoadJWKS(source string) (*jose.JSONWebKeySet, error) {
 func fetchRemoteJWKS(url string) (*jose.JSONWebKeySet, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch JWKS from %s: %w", url, err)
+		return nil, fmt.Errorf("could not fetch JWKS from %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch JWKS from %s: status %d", url, resp.StatusCode)
+		return nil, fmt.Errorf("could not fetch JWKS from %s: status %d", url, resp.StatusCode)
 	}
 
 	var jwks jose.JSONWebKeySet
 	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
-		return nil, fmt.Errorf("failed to decode JWKS from %s: %w", url, err)
+		return nil, fmt.Errorf("could not decode JWKS from %s: %w", url, err)
 	}
 
 	return &jwks, nil
@@ -40,12 +40,12 @@ func fetchRemoteJWKS(url string) (*jose.JSONWebKeySet, error) {
 func loadLocalJWKS(path string) (*jose.JSONWebKeySet, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read JWKS file %s: %w", path, err)
+		return nil, fmt.Errorf("could not read JWKS file at %s: %w", path, err)
 	}
 
 	var jwks jose.JSONWebKeySet
 	if err := json.Unmarshal(data, &jwks); err != nil {
-		return nil, fmt.Errorf("failed to decode JWKS from %s: %w", path, err)
+		return nil, fmt.Errorf("could not decode JWKS from %s: %w", path, err)
 	}
 
 	return &jwks, nil

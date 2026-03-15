@@ -26,11 +26,21 @@ func PrintTokenSummary(info *models.TokenInfo) {
 
 	fmt.Println()
 
-	color.New(color.Bold, color.FgCyan).Print("SIGNATURE: ")
-	if info.Signature != "" {
-		color.New(color.FgGreen).Println("Present")
+	if info.Validation != nil {
+		color.New(color.Bold, color.FgCyan).Print("VERIFICATION: ")
+		if info.Validation.Valid {
+			color.New(color.Bold, color.FgGreen).Printf("VALID ✅ (Algorithm: %s)\n", info.Validation.Algorithm)
+		} else {
+			color.New(color.Bold, color.FgRed).Printf("INVALID ❌ (Algorithm: %s)\n", info.Validation.Algorithm)
+			color.New(color.FgRed).Printf("Error: %s\n", info.Validation.Error)
+		}
 	} else {
-		color.New(color.FgRed).Println("Missing")
+		color.New(color.Bold, color.FgCyan).Print("SIGNATURE: ")
+		if info.Signature != "" {
+			color.New(color.FgGreen).Println("Present (Not Verified)")
+		} else {
+			color.New(color.FgRed).Println("Missing")
+		}
 	}
 }
 
