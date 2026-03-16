@@ -19,6 +19,10 @@ import (
 )
 
 var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+
 	outputFormat string
 	secret       string
 	pemPath      string
@@ -206,7 +210,17 @@ If a verification key is provided (--secret, --pem, or --jwks), it also validate
 	keygenCmd.Flags().StringVarP(&kgCurve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
 	keygenCmd.Flags().StringVarP(&kgFile, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
 
-	rootCmd.AddCommand(inspectCmd, keycloakCmd, keygenCmd)
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("jwt-tool version: %s\n", version)
+			fmt.Printf("commit: %s\n", commit)
+			fmt.Printf("build date: %s\n", date)
+		},
+	}
+
+	rootCmd.AddCommand(inspectCmd, keycloakCmd, keygenCmd, versionCmd)
 	if err := rootCmd.Execute(); err != nil {
 		exitWithError("execution failed", err)
 	}

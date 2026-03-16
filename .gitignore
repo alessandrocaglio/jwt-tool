@@ -17,9 +17,6 @@
 bin/
 build/
 
-# Project specific binaries
-jwt-tool
-
 # IDEs and Editors
 .idea/
 .vscode/
