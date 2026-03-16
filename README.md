@@ -22,7 +22,7 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 
 ```bash
 # Clone the repository
-git clone https://github.com/redhat-labs/jwt-tool.git
+git clone https://github.com/alessandrocaglio/jwt-tool.git
 cd jwt-tool
 
 # Build the binary
