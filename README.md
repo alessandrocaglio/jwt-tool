@@ -9,7 +9,7 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 
 - **Flexible Input (The Resolver Pattern):** Read tokens or keys from direct strings, local files (`@path`), or `stdin` (`-`).
 - **Unified Inspection & Verification:** Always decodes and displays token content, with automatic cryptographic validation if a key is provided.
-- **Signature Verification:** Supports HMAC (HS256/384/512), RSA (RS256/384/512), and ECDSA (ES256/384/512).
+- **Signature Verification:** Supports HMAC (HS256/384/512), RSA (RS256/384/512), ECDSA (ES256/384/512), and EdDSA (Ed25519).
 - **JWKS Integration:** Fetch and validate against local or remote JSON Web Key Sets (JWKS).
 - **Keycloak Integration:** Easily fetch OIDC discovery information or introspect tokens from Keycloak realms.
 - **Smart Output:** Default machine-readable **JSON** output, with a beautiful colorized **Table** view for humans.
@@ -66,7 +66,7 @@ Cryptographically validate the signature and time-based claims by providing a ve
 # Using a symmetric secret
 jwt-tool inspect <TOKEN> --secret "my-super-secret"
 
-# Using a Public Key (RSA/ECDSA)
+# Using a Public Key (RSA/ECDSA/EdDSA)
 jwt-tool inspect <TOKEN> --pem @public_key.pem
 
 # Using a remote JWKS endpoint
@@ -86,6 +86,9 @@ jwt-tool keygen
 # Generate ECDSA P-384 and save to files
 jwt-tool keygen -a ecdsa -c P384 -f mykey
 # Results in 'mykey' (private) and 'mykey.pub' (public)
+
+# Generate EdDSA (Ed25519) and save to files
+jwt-tool keygen -a eddsa -f mykey-ed
 ```
 
 ### 4. Keycloak Integration
@@ -174,13 +177,13 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 ### `inspect` Flags
 - *Usage: `jwt-tool inspect [token|-|@file] [flags]`*
 - `--secret <string>`: Symmetric secret for HMAC.
-- `--pem <path>`: Path to RSA/ECDSA public key file (`@path`).
+- `--pem <path>`: Path to RSA/ECDSA/EdDSA public key file (`@path`).
 - `--jwks <uri|path>`: Path or URL to a JWKS.
 - `--leeway <duration>`: Clock skew tolerance (e.g., `1m`, `30s`).
 - *Aliases: `decode`, `verify`*
 
 ### `keygen` Flags
-- `-a, --alg <string>`: Algorithm: `rsa` (default) or `ecdsa`.
+- `-a, --alg <string>`: Algorithm: `rsa` (default), `ecdsa`, or `eddsa`.
 - `-b, --bits <int>`: RSA bit size: `2048`, `3072`, `4096`.
 - `-c, --curve <string>`: ECDSA curve: `P256`, `P384`, `P521`.
 - `-f, --file <path>`: Save to file (creates `.pub` for public key). **If omitted, prints both private and public keys to stdout.**

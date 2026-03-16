@@ -64,7 +64,7 @@ If a verification key is provided (--secret, --pem, or --jwks), it also validate
 	// Add verification flags to both rootCmd and inspectCmd
 	for _, cmd := range []*cobra.Command{rootCmd, inspectCmd} {
 		cmd.Flags().StringVar(&secret, "secret", "", "Symmetric secret for HMAC verification")
-		cmd.Flags().StringVar(&pemPath, "pem", "", "Path to RSA/ECDSA public key PEM file (@path)")
+		cmd.Flags().StringVar(&pemPath, "pem", "", "Path to RSA/ECDSA/EdDSA public key PEM file (@path)")
 		cmd.Flags().StringVar(&jwksPath, "jwks", "", "Path or URL to JWKS")
 		cmd.Flags().StringVar(&leeway, "leeway", "0s", "Clock skew tolerance (e.g. 60s)")
 	}
@@ -201,11 +201,11 @@ If a verification key is provided (--secret, --pem, or --jwks), it also validate
 	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd, keycloakLoginCmd)
 	keygenCmd := &cobra.Command{
 		Use:   "keygen",
-		Short: "Generate a new asymmetric key pair (RSA or ECDSA) in PEM format",
+		Short: "Generate a new asymmetric key pair (RSA, ECDSA, or EdDSA) in PEM format",
 		Run:   runKeygen,
 	}
 
-	keygenCmd.Flags().StringVarP(&kgAlg, "alg", "a", "rsa", "Algorithm: rsa or ecdsa")
+	keygenCmd.Flags().StringVarP(&kgAlg, "alg", "a", "rsa", "Algorithm: rsa, ecdsa, or eddsa")
 	keygenCmd.Flags().IntVarP(&kgBits, "bits", "b", 2048, "RSA bit size: 2048, 3072, 4096")
 	keygenCmd.Flags().StringVarP(&kgCurve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
 	keygenCmd.Flags().StringVarP(&kgFile, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
@@ -248,7 +248,7 @@ func runInspect(cmd *cobra.Command, args []string) {
 	// Step 2: Attempt verification if keys are provided
 	if secret != "" || pemPath != "" || jwksPath != "" {
 		opts := verifier.VerifyOptions{
-			Algorithms: []string{"HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512"},
+			Algorithms: []string{"HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"},
 		}
 
 		if secret != "" {
@@ -264,16 +264,16 @@ func runInspect(cmd *cobra.Command, args []string) {
 			if err != nil {
 				exitWithError("could not resolve PEM path", err)
 			}
-			pub, err := jwt.ParseRSAPublicKeyFromPEM(p)
-			if err != nil {
-				// Try ECDSA if RSA fails
-				pubEC, errEC := jwt.ParseECPublicKeyFromPEM(p)
-				if errEC != nil {
-					exitWithError("could not parse PEM", fmt.Errorf("tried RSA and ECDSA: %v", err))
-				}
-				opts.PublicKey = pubEC
-			} else {
+
+			// Try to parse as RSA, then ECDSA, then EdDSA
+			if pub, err := jwt.ParseRSAPublicKeyFromPEM(p); err == nil {
 				opts.PublicKey = pub
+			} else if pub, err := jwt.ParseECPublicKeyFromPEM(p); err == nil {
+				opts.PublicKey = pub
+			} else if pub, err := jwt.ParseEdPublicKeyFromPEM(p); err == nil {
+				opts.PublicKey = pub
+			} else {
+				exitWithError("could not parse PEM", fmt.Errorf("tried RSA, ECDSA, and EdDSA public keys"))
 			}
 		}
 
@@ -331,6 +331,8 @@ func runKeygen(cmd *cobra.Command, args []string) {
 		kp, err = keygen.GenerateRSA(kgBits)
 	case "ecdsa":
 		kp, err = keygen.GenerateECDSA(kgCurve)
+	case "eddsa":
+		kp, err = keygen.GenerateEdDSA()
 	default:
 		exitWithError("unsupported algorithm", fmt.Errorf("%s", kgAlg))
 	}

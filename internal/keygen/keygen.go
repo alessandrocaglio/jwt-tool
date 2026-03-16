@@ -2,6 +2,7 @@ package keygen
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -14,6 +15,39 @@ import (
 type KeyPair struct {
 	PrivatePEM []byte
 	PublicPEM  []byte
+}
+
+// GenerateEdDSA generates a new Ed25519 key pair.
+func GenerateEdDSA() (*KeyPair, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate EdDSA key: %w", err)
+	}
+
+	// Encode Private Key (PKCS#8)
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal private key: %w", err)
+	}
+	privBlock := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privBytes,
+	}
+
+	// Encode Public Key (PKIX)
+	pubBytes, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal public key: %w", err)
+	}
+	pubBlock := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubBytes,
+	}
+
+	return &KeyPair{
+		PrivatePEM: pem.EncodeToMemory(privBlock),
+		PublicPEM:  pem.EncodeToMemory(pubBlock),
+	}, nil
 }
 
 // GenerateRSA generates a new RSA key pair.

@@ -66,6 +66,33 @@ func TestGenerateECDSA(t *testing.T) {
 	}
 }
 
+func TestGenerateEdDSA(t *testing.T) {
+	kp, err := GenerateEdDSA()
+	if err != nil {
+		t.Fatalf("failed to generate EdDSA key: %v", err)
+	}
+
+	// Verify Private Key
+	block, _ := pem.Decode(kp.PrivatePEM)
+	if block == nil || block.Type != "PRIVATE KEY" {
+		t.Errorf("invalid private key PEM")
+	}
+	_, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		t.Errorf("failed to parse PKCS8 private key: %v", err)
+	}
+
+	// Verify Public Key
+	block, _ = pem.Decode(kp.PublicPEM)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		t.Errorf("invalid public key PEM")
+	}
+	_, err = x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Errorf("failed to parse PKIX public key: %v", err)
+	}
+}
+
 func TestGenerateECDSA_InvalidCurve(t *testing.T) {
 	_, err := GenerateECDSA("invalid")
 	if err == nil {
