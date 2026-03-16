@@ -1,6 +1,8 @@
 package verifier
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 	"time"
 
@@ -9,6 +11,35 @@ import (
 
 func TestVerify(t *testing.T) {
 	secret := []byte("my-secret")
+
+	t.Run("Valid EdDSA token", func(t *testing.T) {
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatalf("failed to generate EdDSA key: %v", err)
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{
+			"sub": "1234567890",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+		tokenStr, err := token.SignedString(priv)
+		if err != nil {
+			t.Fatalf("failed to sign token: %v", err)
+		}
+
+		opts := VerifyOptions{
+			PublicKey:  pub,
+			Algorithms: []string{"EdDSA"},
+		}
+
+		info, err := Verify(tokenStr, opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if info.Payload["sub"] != "1234567890" {
+			t.Errorf("expected sub 1234567890, got %v", info.Payload["sub"])
+		}
+	})
 
 	t.Run("Valid HMAC token", func(t *testing.T) {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
