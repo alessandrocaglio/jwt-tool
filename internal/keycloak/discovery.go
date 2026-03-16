@@ -15,12 +15,12 @@ func FetchDiscoveryRaw(baseURL, realm string) ([]byte, error) {
 	url := constructDiscoveryURL(baseURL, realm)
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch discovery document: %w", err)
+		return nil, fmt.Errorf("could not fetch discovery document: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch discovery document from %s: status %d", url, resp.StatusCode)
+		return nil, fmt.Errorf("could not fetch discovery document from %s: status %d", url, resp.StatusCode)
 	}
 
 	return io.ReadAll(resp.Body)
@@ -35,7 +35,7 @@ func FetchDiscovery(baseURL, realm string) (*models.KeycloakDiscovery, error) {
 
 	var discovery models.KeycloakDiscovery
 	if err := json.Unmarshal(data, &discovery); err != nil {
-		return nil, fmt.Errorf("failed to decode discovery document: %w", err)
+		return nil, fmt.Errorf("could not decode discovery document: %w", err)
 	}
 
 	return &discovery, nil

@@ -118,7 +118,7 @@ func TestLoadJWKSDispatcher(t *testing.T) {
 		if err == nil {
 			t.Error("expected error for invalid URL")
 		}
-		if !strings.Contains(err.Error(), "failed to fetch JWKS") {
+		if !strings.Contains(err.Error(), "could not fetch JWKS") {
 			t.Errorf("expected fetch error, got: %v", err)
 		}
 	})
@@ -128,7 +128,7 @@ func TestLoadJWKSDispatcher(t *testing.T) {
 		if err == nil {
 			t.Error("expected error for non-existent local file")
 		}
-		if !strings.Contains(err.Error(), "failed to read JWKS file") {
+		if !strings.Contains(err.Error(), "could not read JWKS file") {
 			t.Errorf("expected read error, got: %v", err)
 		}
 	})

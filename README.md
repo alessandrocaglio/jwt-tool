@@ -8,6 +8,7 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 ## 🚀 Key Features
 
 - **Flexible Input (The Resolver Pattern):** Read tokens or keys from direct strings, local files (`@path`), or `stdin` (`-`).
+- **Unified Inspection & Verification:** Always decodes and displays token content, with automatic cryptographic validation if a key is provided.
 - **Signature Verification:** Supports HMAC (HS256/384/512), RSA (RS256/384/512), and ECDSA (ES256/384/512).
 - **JWKS Integration:** Fetch and validate against local or remote JSON Web Key Sets (JWKS).
 - **Keycloak Integration:** Easily fetch OIDC discovery information or introspect tokens from Keycloak realms.
@@ -35,7 +36,7 @@ sudo mv jwt-tool /usr/local/bin/
 
 ## 🛠 Usage Guide
 
-### 1. Decoding (Inspection only)
+### 1. Inspecting & Decoding
 Parse the header and payload without performing cryptographic verification.
 `jwt-tool` defaults to this action if no subcommand is provided.
 
@@ -47,27 +48,32 @@ jwt-tool <TOKEN>
 echo <TOKEN> | jwt-tool
 
 # Explicit subcommand
-jwt-tool decode <TOKEN>
+jwt-tool inspect <TOKEN>
 
 # From a file
-jwt-tool decode @path/to/token.jwt
+jwt-tool inspect @path/to/token.jwt
 
 # Human-readable table output
 jwt-tool <TOKEN> -o table
 ```
 
-### 2. Verification
-Cryptographically validate the signature and time-based claims.
+### 2. Verifying
+Cryptographically validate the signature and time-based claims by providing a verification key. 
+
+**Note:** The tool will always display the decoded token content first, even if verification fails. If verification fails, the tool will exit with **Code 2**.
 
 ```bash
 # Using a symmetric secret
-jwt-tool verify <TOKEN> --secret "my-super-secret"
+jwt-tool inspect <TOKEN> --secret "my-super-secret"
 
 # Using a Public Key (RSA/ECDSA)
-jwt-tool verify <TOKEN> --pem @public_key.pem
+jwt-tool inspect <TOKEN> --pem @public_key.pem
 
 # Using a remote JWKS endpoint
-jwt-tool verify <TOKEN> --jwks https://auth.example.com/.well-known/jwks.json
+jwt-tool inspect <TOKEN> --jwks https://auth.example.com/.well-known/jwks.json
+
+# Verification also works with the default command
+jwt-tool <TOKEN> --secret "my-super-secret"
 ```
 
 ### 3. Key Generation
@@ -133,6 +139,24 @@ Toggle between formats using the `-o` or `--output` flag.
 | **Table** | `-o table` | Colorized, human-friendly table with date-time conversions. |
 | **OpenID** | `-o openid` | Raw `openid-configuration` JSON from the server (for `keycloak info`). |
 
+### JSON Schema Extensions
+When verification is requested, `jwt-tool` adds an `x-validation` field to the JSON output. This follows the industry convention of using an `x-` prefix for tool-specific metadata, ensuring that the original JWT structure (header, payload, signature) remains untampered and clearly separated from the tool's assessment.
+
+**Example (Failed Verification):**
+```json
+{
+  "header": { ... },
+  "payload": { ... },
+  "signature": "...",
+  "x-validation": {
+    "valid": false,
+    "status": "INVALID",
+    "error": "token is expired by 1h5m20s",
+    "algorithm": "RS256"
+  }
+}
+```
+
 ---
 
 ## 📑 CLI Reference
@@ -140,15 +164,13 @@ Toggle between formats using the `-o` or `--output` flag.
 ### Global Flags
 - `-o, --output <string>`: Output format. Options: `json` (default), `table`, `openid`.
 
-### `decode` Flags
-- *None (inherits global flags). Usage: `jwt-tool decode [token|-|@file]`*
-
-### `verify` Flags
-- *Usage: `jwt-tool verify [token|-|@file] [flags]`*
+### `inspect` Flags
+- *Usage: `jwt-tool inspect [token|-|@file] [flags]`*
 - `--secret <string>`: Symmetric secret for HMAC.
 - `--pem <path>`: Path to RSA/ECDSA public key file (`@path`).
 - `--jwks <uri|path>`: Path or URL to a JWKS.
 - `--leeway <duration>`: Clock skew tolerance (e.g., `1m`, `30s`).
+- *Aliases: `decode`, `verify`*
 
 ### `keygen` Flags
 - `-a, --alg <string>`: Algorithm: `rsa` (default) or `ecdsa`.

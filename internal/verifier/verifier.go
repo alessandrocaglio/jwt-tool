@@ -53,14 +53,14 @@ func Verify(tokenStr string, opts VerifyOptions) (*models.TokenInfo, error) {
 				}
 				keys := opts.JWKS.Key(kid)
 				if len(keys) == 0 {
-					return nil, fmt.Errorf("no key found in JWKS for kid %s", kid)
+					return nil, fmt.Errorf("key with kid %s not found in JWKS", kid)
 				}
 				return keys[0].Key, nil
 			}
 
 			return nil, fmt.Errorf("missing public key or JWKS for algorithm %s", token.Method.Alg())
 		case "none":
-			return nil, fmt.Errorf("none algorithm is not allowed")
+			return nil, fmt.Errorf("algorithm 'none' is not allowed")
 		default:
 			return nil, fmt.Errorf("unsupported algorithm: %s", token.Method.Alg())
 		}
