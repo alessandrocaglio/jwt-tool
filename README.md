@@ -127,6 +127,13 @@ jwt-tool keycloak introspect @token.jwt --url ...
 jwt-tool keycloak introspect <TOKEN> ... -o table
 ```
 
+### 5. Version
+Print the version, commit hash, and build date.
+
+```bash
+jwt-tool version
+```
+
 ---
 
 ## 📊 Output Formats
@@ -197,6 +204,10 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `--username <string>`: Username (for password grant).
 - `--password <string>`: Password (for password grant).
 - `--scope <string>`: Token scope (default: `openid`).
+
+### `version`
+- *Usage: `jwt-tool version`*
+- Prints version, commit hash, and build date.
 
 ---
 
