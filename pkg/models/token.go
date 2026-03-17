@@ -8,6 +8,7 @@ type ValidationInfo struct {
 	Status    string `json:"status"`
 	Error     string `json:"error,omitempty"`
 	Algorithm string `json:"algorithm,omitempty"`
+	Leeway    string `json:"leeway,omitempty"`
 }
 
 // TokenInfo holds the decoded parts of a JWT and optional validation metadata.

@@ -244,6 +244,7 @@ func runInspect(cmd *cobra.Command, args []string) {
 	}
 
 	validationFailed := false
+	leewayDisplay := "0s"
 
 	// Step 2: Attempt verification if keys are provided
 	if secret != "" || pemPath != "" || jwksPath != "" {
@@ -290,7 +291,13 @@ func runInspect(cmd *cobra.Command, args []string) {
 			if err != nil {
 				exitWithError("could not parse leeway duration", err)
 			}
+
+			if d > 5*time.Minute {
+				fmt.Fprintf(os.Stderr, "warning: leeway of %s is unusually large and may accept significantly expired tokens\n", d)
+			}
+
 			opts.Leeway = d
+			leewayDisplay = d.String()
 		}
 
 		alg, _ := info.Header["alg"].(string)
@@ -302,6 +309,7 @@ func runInspect(cmd *cobra.Command, args []string) {
 				Status:    "INVALID",
 				Error:     err.Error(),
 				Algorithm: alg,
+				Leeway:    leewayDisplay,
 			}
 			validationFailed = true
 		} else {
@@ -309,6 +317,7 @@ func runInspect(cmd *cobra.Command, args []string) {
 				Valid:     true,
 				Status:    "VALID",
 				Algorithm: alg,
+				Leeway:    leewayDisplay,
 			}
 		}
 	}

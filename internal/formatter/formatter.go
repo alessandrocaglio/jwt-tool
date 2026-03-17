@@ -29,9 +29,9 @@ func PrintTokenSummary(info *models.TokenInfo) {
 	if info.Validation != nil {
 		color.New(color.Bold, color.FgCyan).Print("VERIFICATION: ")
 		if info.Validation.Valid {
-			color.New(color.Bold, color.FgGreen).Printf("VALID ✅ (Algorithm: %s)\n", info.Validation.Algorithm)
+			color.New(color.Bold, color.FgGreen).Printf("VALID ✅ (Algorithm: %s, Leeway: %s)\n", info.Validation.Algorithm, info.Validation.Leeway)
 		} else {
-			color.New(color.Bold, color.FgRed).Printf("INVALID ❌ (Algorithm: %s)\n", info.Validation.Algorithm)
+			color.New(color.Bold, color.FgRed).Printf("INVALID ❌ (Algorithm: %s, Leeway: %s)\n", info.Validation.Algorithm, info.Validation.Leeway)
 			color.New(color.FgRed).Printf("Error: %s\n", info.Validation.Error)
 		}
 	} else {

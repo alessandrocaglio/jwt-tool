@@ -176,10 +176,10 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 
 ### `inspect` Flags
 - *Usage: `jwt-tool inspect [token|-|@file] [flags]`*
-- `--secret <string>`: Symmetric secret for HMAC.
+- `--secret <string>`: Symmetric secret for HMAC verification.
 - `--pem <path>`: Path to RSA/ECDSA/EdDSA public key file (`@path`).
 - `--jwks <uri|path>`: Path or URL to a JWKS.
-- `--leeway <duration>`: Clock skew tolerance (e.g., `1m`, `30s`).
+- `--leeway <duration>`: Clock skew tolerance (e.g., `1m`, `30s`). **Default is `0s`**. Values greater than `5m` will trigger a security warning.
 - *Aliases: `decode`, `verify`*
 
 ### `keygen` Flags
