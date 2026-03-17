@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"jwt-tool/internal/formatter"
@@ -11,6 +12,7 @@ import (
 	"jwt-tool/internal/keygen"
 	"jwt-tool/internal/remote"
 	"jwt-tool/internal/resolver"
+	"jwt-tool/internal/signer"
 	"jwt-tool/internal/verifier"
 	"jwt-tool/pkg/models"
 
@@ -36,6 +38,20 @@ var (
 	kgBits  int
 	kgCurve string
 	kgFile  string
+
+	// Create flags
+	createAlg     string
+	createSecret  string
+	createPem     string
+	createPayload string
+	createClaims  []string
+	createHeaders []string
+	createExp     string
+	createNbf     string
+	createIat     string
+	createIss     string
+	createSub     string
+	createAud     string
 )
 
 func main() {
@@ -43,8 +59,8 @@ func main() {
 		Use:   "jwt-tool [token|-|@file]",
 		Short: "A security-first JWT inspection and verification CLI",
 		Long: `A security-first JWT inspection and verification CLI.
-By default, it inspects the provided token (or reads from stdin if no argument is given).
-If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
+	By default, it inspects the provided token (or reads from stdin if no argument is given).
+	If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
 		Args: cobra.MaximumNArgs(1),
 		Run:  runInspect,
 	}
@@ -56,7 +72,7 @@ If a verification key is provided (--secret, --pem, or --jwks), it also validate
 		Aliases: []string{"decode", "verify"},
 		Short:   "Decode and inspect JWT header and claims with optional verification",
 		Long: `Decode and inspect JWT header and claims. 
-If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
+	If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
 		Args: cobra.MaximumNArgs(1),
 		Run:  runInspect,
 	}
@@ -220,9 +236,170 @@ If a verification key is provided (--secret, --pem, or --jwks), it also validate
 		},
 	}
 
-	rootCmd.AddCommand(inspectCmd, keycloakCmd, keygenCmd, versionCmd)
+	rootCmd.AddCommand(inspectCmd, keycloakCmd, keygenCmd, createCmd, versionCmd)
 	if err := rootCmd.Execute(); err != nil {
 		exitWithError("execution failed", err)
+	}
+}
+
+var createCmd = &cobra.Command{
+	Use:     "create",
+	Aliases: []string{"sign"},
+	Short:   "Create and sign a new JWT",
+	Long: `Create and sign a new JWT from scratch.
+	Example:
+	jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h`,
+	Run: runCreate,
+}
+
+func init() {
+	createCmd.Flags().StringVar(&createAlg, "alg", "HS256", "Algorithm: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, EdDSA")
+	createCmd.Flags().StringVar(&createSecret, "secret", "", "Symmetric secret for HMAC")
+	createCmd.Flags().StringVar(&createPem, "pem", "", "Path to private key PEM file (@path)")
+	createCmd.Flags().StringVar(&createPayload, "payload", "", "Path to JSON file for bulk payload (@path)")
+	createCmd.Flags().StringSliceVar(&createClaims, "claim", []string{}, "Custom claims in key=value format (repeatable)")
+	createCmd.Flags().StringSliceVar(&createHeaders, "header", []string{}, "Custom header fields in key=value format (repeatable)")
+	createCmd.Flags().StringVar(&createExp, "exp", "", "Expiration time (shorthand duration, e.g. 1h, 1d)")
+	createCmd.Flags().StringVar(&createNbf, "nbf", "", "Not before time (shorthand duration, e.g. 1m)")
+	createCmd.Flags().StringVar(&createIat, "iat", "0s", "Issued at time (offset duration, default 0s means now)")
+	createCmd.Flags().StringVar(&createIss, "iss", "", "Issuer claim")
+	createCmd.Flags().StringVar(&createSub, "sub", "", "Subject claim")
+	createCmd.Flags().StringVar(&createAud, "aud", "", "Audience claim")
+}
+
+func runCreate(cmd *cobra.Command, args []string) {
+	opts := signer.SignOptions{
+		Algorithm: createAlg,
+		Claims:    jwt.MapClaims{},
+		Header:    make(map[string]interface{}),
+	}
+
+	// 1. Resolve Keys
+	if createSecret != "" {
+		s, err := resolver.Resolve(createSecret)
+		if err != nil {
+			exitWithError("could not resolve secret", err)
+		}
+		opts.Secret = s
+	}
+
+	if createPem != "" {
+		p, err := resolver.Resolve(createPem)
+		if err != nil {
+			exitWithError("could not resolve PEM path", err)
+		}
+
+		// Try to parse as private keys
+		if priv, err := jwt.ParseRSAPrivateKeyFromPEM(p); err == nil {
+			opts.PrivateKey = priv
+		} else if priv, err := jwt.ParseECPrivateKeyFromPEM(p); err == nil {
+			opts.PrivateKey = priv
+		} else if priv, err := jwt.ParseEdPrivateKeyFromPEM(p); err == nil {
+			opts.PrivateKey = priv
+		} else {
+			exitWithError("could not parse private key PEM", fmt.Errorf("tried RSA, ECDSA, and EdDSA"))
+		}
+	}
+
+	// 2. Load Payload File
+	if createPayload != "" {
+		data, err := resolver.Resolve(createPayload)
+		if err != nil {
+			exitWithError("could not resolve payload file", err)
+		}
+		if err := json.Unmarshal(data, &opts.Claims); err != nil {
+			exitWithError("could not parse payload JSON", err)
+		}
+	}
+
+	// 3. Apply Shorthand Claims
+	now := time.Now()
+	if createExp != "" {
+		d, err := time.ParseDuration(createExp)
+		if err != nil {
+			exitWithError("invalid exp duration", err)
+		}
+		opts.Claims["exp"] = jwt.NewNumericDate(now.Add(d))
+	}
+	if createNbf != "" {
+		d, err := time.ParseDuration(createNbf)
+		if err != nil {
+			exitWithError("invalid nbf duration", err)
+		}
+		opts.Claims["nbf"] = jwt.NewNumericDate(now.Add(d))
+	}
+	if createIat != "" {
+		d, err := time.ParseDuration(createIat)
+		if err != nil {
+			exitWithError("invalid iat duration", err)
+		}
+		opts.Claims["iat"] = jwt.NewNumericDate(now.Add(d))
+	}
+	if createIss != "" {
+		opts.Claims["iss"] = createIss
+	}
+	if createSub != "" {
+		opts.Claims["sub"] = createSub
+	}
+	if createAud != "" {
+		opts.Claims["aud"] = createAud
+	}
+
+	// 4. Parse Individual Claims
+	for _, c := range createClaims {
+		parts := strings.SplitN(c, "=", 2)
+		if len(parts) != 2 {
+			exitWithError("invalid claim format", fmt.Errorf("expected key=value, got %s", c))
+		}
+		// Try to parse as JSON if it looks like one, otherwise treat as string
+		var val interface{}
+		if err := json.Unmarshal([]byte(parts[1]), &val); err != nil {
+			val = parts[1]
+		}
+		opts.Claims[parts[0]] = val
+	}
+
+	// 5. Parse Individual Headers
+	for _, h := range createHeaders {
+		parts := strings.SplitN(h, "=", 2)
+		if len(parts) != 2 {
+			exitWithError("invalid header format", fmt.Errorf("expected key=value, got %s", h))
+		}
+		var val interface{}
+		if err := json.Unmarshal([]byte(parts[1]), &val); err != nil {
+			val = parts[1]
+		}
+		opts.Header[parts[0]] = val
+	}
+
+	// 6. Security Warnings
+	if _, ok := opts.Claims["exp"]; !ok {
+		fmt.Fprintf(os.Stderr, "warning: no expiration ('exp') claim provided. The token will never expire.\n")
+	} else if exp, ok := opts.Claims["exp"].(*jwt.NumericDate); ok {
+		if exp.Time.Sub(now) > 24*time.Hour {
+			fmt.Fprintf(os.Stderr, "warning: expiration is more than 24 hours in the future.\n")
+		}
+	}
+
+	// 7. Sign
+	token, err := signer.Sign(opts)
+	if err != nil {
+		exitWithError("could not sign token", err)
+	}
+
+	// 8. Output
+	if cmd.Flag("output").Changed {
+		if outputFormat == "json" || outputFormat == "table" {
+			info, err := verifier.Decode(token)
+			if err != nil {
+				exitWithError("could not decode signed token for output", err)
+			}
+			render(info, nil)
+		} else {
+			fmt.Println(token)
+		}
+	} else {
+		fmt.Println(token)
 	}
 }
 

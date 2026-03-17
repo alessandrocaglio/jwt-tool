@@ -76,7 +76,28 @@ jwt-tool inspect <TOKEN> --jwks https://auth.example.com/.well-known/jwks.json
 jwt-tool <TOKEN> --secret "my-super-secret"
 ```
 
-### 3. Key Generation
+### 3. Creating & Signing
+Create a new JWT from scratch. By default, it prints the raw signed token string to `stdout`.
+Aliases: `sign`, `gen`, `generate`.
+
+```bash
+# HMAC (HS256) with custom subject and expiration (1 hour)
+jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h
+
+# Using the 'sign' alias
+jwt-tool sign --alg HS256 --secret "my-secret" --sub "user123" --exp 1h
+
+# RSA (RS256) with private key and custom claims
+jwt-tool create --alg RS256 --pem @private_key.pem --claim role=admin --claim id=456
+
+# Using a JSON file for the payload
+jwt-tool create --alg HS256 --secret "my-secret" --payload @claims.json
+
+# Output decoded JSON for immediate inspection
+jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" -o json
+```
+
+### 4. Key Generation
 Generate asymmetric key pairs for JWT signing.
 
 ```bash

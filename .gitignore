@@ -35,7 +35,6 @@ Thumbs.db
 
 .gemini/
 gha-creds-*.json
-GEMINI.md
 CODE_OF_CONDUCT.md
 snippet.txt
 SECURITY.md
