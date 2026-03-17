@@ -110,7 +110,7 @@ func TestTimeValidation(t *testing.T) {
 			inspectCmd.Stdin = bytes.NewBufferString(token)
 			var inspectOut bytes.Buffer
 			inspectCmd.Stdout = &inspectOut
-			
+
 			// We expect an error exit code for these cases
 			err := inspectCmd.Run()
 			if tt.expectedExit == 0 {
@@ -179,7 +179,7 @@ func TestSecurityKeyConfusion(t *testing.T) {
 	var inspectErr bytes.Buffer
 	inspectCmd.Stdout = &inspectOut
 	inspectCmd.Stderr = &inspectErr
-	
+
 	// Should fail with exit code 2 (validation failure)
 	err := inspectCmd.Run()
 	if err == nil {
@@ -199,7 +199,7 @@ func TestSecurityKeyConfusion(t *testing.T) {
 	if validation["valid"] == true {
 		t.Fatal("security vulnerability: HS256 token validated using --pem flag")
 	}
-	
+
 	expectedErrorPart := "missing secret for HMAC algorithm HS256"
 	actualError := validation["error"].(string)
 	if !strings.Contains(actualError, expectedErrorPart) {
@@ -263,7 +263,7 @@ func TestBulkPayloadLoading(t *testing.T) {
 	})
 
 	payload := map[string]interface{}{
-		"sub": "bulk-user",
+		"sub":   "bulk-user",
 		"roles": []string{"admin", "editor"},
 		"nested": map[string]interface{}{
 			"key": "value",
