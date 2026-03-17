@@ -220,7 +220,9 @@ func TestResolverPattern(t *testing.T) {
 	})
 
 	secret := "resolver-secret"
-	os.WriteFile("secret.txt", []byte(secret), 0644)
+	if err := os.WriteFile("secret.txt", []byte(secret), 0644); err != nil {
+		t.Fatalf("failed to write secret.txt: %v", err)
+	}
 
 	// 1. Create token and save to file
 	createCmd := exec.Command(binaryPath, "create", "--alg", "HS256", "--secret", "@secret.txt", "--exp", "1h")
@@ -230,7 +232,9 @@ func TestResolverPattern(t *testing.T) {
 		t.Fatalf("create failed: %v", err)
 	}
 	token := tokenOut.String()
-	os.WriteFile("token.jwt", []byte(token), 0644)
+	if err := os.WriteFile("token.jwt", []byte(token), 0644); err != nil {
+		t.Fatalf("failed to write token.jwt: %v", err)
+	}
 
 	// 2. Inspect using @file for both token and secret
 	inspectCmd := exec.Command(binaryPath, "inspect", "@token.jwt", "--secret", "@secret.txt")
@@ -269,8 +273,13 @@ func TestBulkPayloadLoading(t *testing.T) {
 			"key": "value",
 		},
 	}
-	payloadBytes, _ := json.Marshal(payload)
-	os.WriteFile("payload.json", payloadBytes, 0644)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal payload: %v", err)
+	}
+	if err := os.WriteFile("payload.json", payloadBytes, 0644); err != nil {
+		t.Fatalf("failed to write payload.json: %v", err)
+	}
 
 	// 1. Create token using --payload
 	createCmd := exec.Command(binaryPath, "create", "--alg", "HS256", "--secret", "secret", "--payload", "@payload.json", "--exp", "1h")
