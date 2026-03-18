@@ -27,7 +27,10 @@ func TestLogin(t *testing.T) {
 				ExpiresIn:   3600,
 				TokenType:   "Bearer",
 			}
-			json.NewEncoder(w).Encode(response)
+			err := json.NewEncoder(w).Encode(response)
+			if err != nil {
+				t.Fatalf("could not encode response: %v", err)
+			}
 			return
 		}
 
@@ -74,7 +77,10 @@ func TestLogin_WithPasswordGrant(t *testing.T) {
 				ExpiresIn:   3600,
 				TokenType:   "Bearer",
 			}
-			json.NewEncoder(w).Encode(response)
+			err := json.NewEncoder(w).Encode(response)
+			if err != nil {
+				t.Fatalf("could not encode response: %v", err)
+			}
 			return
 		}
 
