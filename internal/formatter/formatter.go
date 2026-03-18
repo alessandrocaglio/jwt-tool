@@ -44,8 +44,8 @@ func PrintTokenSummary(info *models.TokenInfo) {
 	}
 }
 
-// PrintKeycloakTable prints a human-readable table of the Keycloak discovery document.
-func PrintKeycloakTable(discovery *models.KeycloakDiscovery) {
+// PrintOIDCTable prints a human-readable table of the OIDC discovery document.
+func PrintOIDCTable(discovery *models.OIDCDiscovery) {
 	color.New(color.Bold, color.FgCyan).Println("--- IDENTITY ---")
 	fmt.Printf("%s\t%s\n", color.New(color.FgYellow).Sprint("Issuer"), discovery.Issuer)
 
@@ -171,7 +171,7 @@ func PrintIntrospectionTable(response models.IntrospectionResponse) {
 }
 
 // PrintLoginTable prints a human-readable summary of the login response.
-func PrintLoginTable(resp *models.TokenResponse) {
+func PrintLoginTable(resp *models.OIDCTokenResponse) {
 	color.New(color.Bold, color.FgGreen).Println("Login: SUCCESS ✅")
 	fmt.Println()
 

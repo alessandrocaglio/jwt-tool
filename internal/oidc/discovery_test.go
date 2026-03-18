@@ -1,4 +1,4 @@
-package keycloak
+package oidc
 
 import (
 	"fmt"
@@ -7,22 +7,21 @@ import (
 	"testing"
 )
 
-func TestConstructIssuerURL(t *testing.T) {
+func TestConstructDiscoveryURL(t *testing.T) {
 	tests := []struct {
-		baseURL  string
-		realm    string
+		issuer   string
 		expected string
 	}{
-		{"http://localhost:8080", "master", "http://localhost:8080/realms/master"},
-		{"https://auth.example.com/", "myrealm", "https://auth.example.com/realms/myrealm"},
-		{"auth.example.com", "myrealm", "https://auth.example.com/realms/myrealm"},
+		{"http://localhost:8080", "http://localhost:8080/.well-known/openid-configuration"},
+		{"https://auth.example.com/", "https://auth.example.com/.well-known/openid-configuration"},
+		{"auth.example.com", "https://auth.example.com/.well-known/openid-configuration"},
 	}
 
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s/%s", tt.baseURL, tt.realm), func(t *testing.T) {
-			got := constructIssuerURL(tt.baseURL, tt.realm)
+		t.Run(tt.issuer, func(t *testing.T) {
+			got := constructDiscoveryURL(tt.issuer)
 			if got != tt.expected {
-				t.Errorf("constructIssuerURL() = %v, want %v", got, tt.expected)
+				t.Errorf("constructDiscoveryURL() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
@@ -30,8 +29,8 @@ func TestConstructIssuerURL(t *testing.T) {
 
 func TestFetchDiscovery(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/realms/test-realm/.well-known/openid-configuration" {
-			t.Errorf("expected path /realms/test-realm/.well-known/openid-configuration, got %s", r.URL.Path)
+		if r.URL.Path != "/.well-known/openid-configuration" {
+			t.Errorf("expected path /.well-known/openid-configuration, got %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -40,7 +39,7 @@ func TestFetchDiscovery(t *testing.T) {
 	}))
 	defer server.Close()
 
-	discovery, err := FetchDiscovery(server.URL, "test-realm")
+	discovery, err := FetchDiscovery(server.URL)
 	if err != nil {
 		t.Fatalf("FetchDiscovery() error = %v", err)
 	}
@@ -61,12 +60,25 @@ func TestFetchDiscoveryRaw(t *testing.T) {
 	}))
 	defer server.Close()
 
-	data, err := FetchDiscoveryRaw(server.URL, "test-realm")
+	data, err := FetchDiscoveryRaw(server.URL)
 	if err != nil {
 		t.Fatalf("FetchDiscoveryRaw() error = %v", err)
 	}
 
 	if string(data) != expectedData {
 		t.Errorf("FetchDiscoveryRaw() data = %v, want %v", string(data), expectedData)
+	}
+}
+
+func TestFetchDiscovery_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"issuer": "http://test-issuer", "jwks_uri": "http://test-issuer/jwks"`)
+	}))
+	defer server.Close()
+
+	_, err := FetchDiscovery(server.URL)
+	if err == nil {
+		t.Fatal("FetchDiscovery() error = nil, want error")
 	}
 }
