@@ -7,22 +7,22 @@ import (
 	"testing"
 )
 
-func TestConstructDiscoveryURL(t *testing.T) {
+func TestConstructIssuerURL(t *testing.T) {
 	tests := []struct {
 		baseURL  string
 		realm    string
 		expected string
 	}{
-		{"http://localhost:8080", "master", "http://localhost:8080/realms/master/.well-known/openid-configuration"},
-		{"https://auth.example.com/", "myrealm", "https://auth.example.com/realms/myrealm/.well-known/openid-configuration"},
-		{"auth.example.com", "myrealm", "https://auth.example.com/realms/myrealm/.well-known/openid-configuration"},
+		{"http://localhost:8080", "master", "http://localhost:8080/realms/master"},
+		{"https://auth.example.com/", "myrealm", "https://auth.example.com/realms/myrealm"},
+		{"auth.example.com", "myrealm", "https://auth.example.com/realms/myrealm"},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s/%s", tt.baseURL, tt.realm), func(t *testing.T) {
-			got := constructDiscoveryURL(tt.baseURL, tt.realm)
+			got := constructIssuerURL(tt.baseURL, tt.realm)
 			if got != tt.expected {
-				t.Errorf("constructDiscoveryURL() = %v, want %v", got, tt.expected)
+				t.Errorf("constructIssuerURL() = %v, want %v", got, tt.expected)
 			}
 		})
 	}

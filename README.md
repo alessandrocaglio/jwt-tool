@@ -11,7 +11,8 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 - **Unified Inspection & Verification:** Always decodes and displays token content, with automatic cryptographic validation if a key is provided.
 - **Signature Verification:** Supports HMAC (HS256/384/512), RSA (RS256/384/512), ECDSA (ES256/384/512), and EdDSA (Ed25519).
 - **JWKS Integration:** Fetch and validate against local or remote JSON Web Key Sets (JWKS).
-- **Keycloak Integration:** Easily fetch OIDC discovery information or introspect tokens from Keycloak realms.
+- **Generic OIDC Integration:** Support any compliant OIDC provider (Google, Auth0, Okta, etc.) with automatic discovery and introspection.
+- **Keycloak Preset:** Easily fetch OIDC discovery information or introspect tokens from Keycloak realms.
 - **Smart Output:** Default machine-readable **JSON** output, with a beautiful colorized **Table** view for humans.
 - **Timestamp Awareness:** Automatically converts `exp`, `iat`, `nbf`, `auth_time`, and `updated_at` claims into human-readable date-time strings.
 - **Security Hardened:** Explicitly rejects `none` algorithms and protects against key confusion attacks.
@@ -112,43 +113,35 @@ jwt-tool keygen -a ecdsa -c P384 -f mykey
 jwt-tool keygen -a eddsa -f mykey-ed
 ```
 
-### 4. Keycloak Integration
-Fetch OIDC discovery information or introspect a token from a Keycloak realm.
+### 4. OIDC & Keycloak Integration
+`jwt-tool` supports generic OpenID Connect (OIDC) providers and includes a special preset for Keycloak.
 
-#### Discovery Info
+#### Generic OIDC
+Use the `oidc` command for any compliant provider.
+
 ```bash
-# Fetch and display discovery info as JSON (default)
+# Fetch and display discovery info (requires --issuer)
+jwt-tool oidc info --issuer https://accounts.google.com
+
+# Token Login (client credentials or password)
+jwt-tool oidc login --issuer https://auth.example.com --client-id my-id --client-secret my-secret
+
+# Token Introspection
+jwt-tool oidc introspect <TOKEN> --issuer https://auth.example.com --client-id my-id --client-secret my-secret
+```
+
+#### Keycloak Preset
+The `keycloak` (alias `kc`) command remains available as a convenient shortcut for Keycloak realms.
+
+```bash
+# Fetch and display discovery info
 jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm
 
-# Display as a human-readable table
-jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o table
-
-# Output the raw openid-configuration from the endpoint
-jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm -o openid
-```
-
-#### Token Login
-```bash
-# Get an access token using client credentials (prints token string only by default)
+# Token Login
 jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
 
-# Get an access token using password grant
-jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret --username jdoe --password pass
-
-# Display full response details in a table
-jwt-tool keycloak login ... -o table
-```
-
-#### Token Introspection
-```bash
-# Introspect a token (requires client credentials)
+# Token Introspection
 jwt-tool keycloak introspect <TOKEN> --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
-
-# From a file
-jwt-tool keycloak introspect @token.jwt --url ...
-
-# Human-readable status and details
-jwt-tool keycloak introspect <TOKEN> ... -o table
 ```
 
 ### 5. Version
@@ -168,7 +161,7 @@ Toggle between formats using the `-o` or `--output` flag.
 | :--- | :--- | :--- |
 | **JSON** | `-o json` | **(Default)** Indented JSON, perfect for `jq` or scripting. |
 | **Table** | `-o table` | Colorized, human-friendly table with date-time conversions. |
-| **OpenID** | `-o openid` | Raw `openid-configuration` JSON from the server (for `keycloak info`). |
+| **OpenID** | `-o openid` | Raw `openid-configuration` JSON from the server (for `oidc info` or `keycloak info`). |
 
 ### JSON Schema Extensions
 When verification is requested, `jwt-tool` adds an `x-validation` field to the JSON output. This follows the industry convention of using an `x-` prefix for tool-specific metadata, ensuring that the original JWT structure (header, payload, signature) remains untampered and clearly separated from the tool's assessment.
@@ -208,6 +201,22 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `-b, --bits <int>`: RSA bit size: `2048`, `3072`, `4096`.
 - `-c, --curve <string>`: ECDSA curve: `P256`, `P384`, `P521`.
 - `-f, --file <path>`: Save to file (creates `.pub` for public key). **If omitted, prints both private and public keys to stdout.**
+
+### `oidc info` Flags
+- `--issuer <string>`: OIDC provider issuer URL.
+
+### `oidc introspect` Flags
+- `--issuer <string>`: OIDC provider issuer URL.
+- `--client-id <string>`: Client ID.
+- `--client-secret <string>`: Client Secret.
+
+### `oidc login` Flags
+- `--issuer <string>`: OIDC provider issuer URL.
+- `--client-id <string>`: Client ID.
+- `--client-secret <string>`: Client Secret.
+- `--username <string>`: Username (for password grant).
+- `--password <string>`: Password (for password grant).
+- `--scope <string>`: Token scope (default: `openid`).
 
 ### `keycloak info` Flags
 - `--url <string>`: Keycloak base URL.

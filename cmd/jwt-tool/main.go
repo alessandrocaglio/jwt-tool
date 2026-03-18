@@ -10,6 +10,7 @@ import (
 	"jwt-tool/internal/formatter"
 	"jwt-tool/internal/keycloak"
 	"jwt-tool/internal/keygen"
+	"jwt-tool/internal/oidc"
 	"jwt-tool/internal/remote"
 	"jwt-tool/internal/resolver"
 	"jwt-tool/internal/signer"
@@ -33,6 +34,7 @@ var (
 
 	keycloakURL   string
 	keycloakRealm string
+	oidcIssuer    string
 	// Keygen flags
 	kgAlg   string
 	kgBits  int
@@ -215,6 +217,122 @@ func main() {
 	keycloakLoginCmd.Flags().StringVar(&scope, "scope", "openid", "Token scope")
 
 	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd, keycloakLoginCmd)
+
+	oidcCmd := &cobra.Command{
+		Use:   "oidc",
+		Short: "OIDC integration features",
+	}
+
+	oidcInfoCmd := &cobra.Command{
+		Use:   "info",
+		Short: "Fetch and display OIDC discovery information",
+		Run: func(cmd *cobra.Command, args []string) {
+			if oidcIssuer == "" {
+				exitWithError("missing required flags", fmt.Errorf("--issuer must be specified"))
+			}
+
+			if outputFormat == "openid" {
+				data, err := oidc.FetchDiscoveryRaw(oidcIssuer)
+				if err != nil {
+					exitWithError("could not fetch discovery document", err)
+				}
+				fmt.Println(string(data))
+				return
+			}
+
+			discovery, err := oidc.FetchDiscovery(oidcIssuer)
+			if err != nil {
+				exitWithError("could not fetch discovery document", err)
+			}
+
+			render(discovery, nil)
+		},
+	}
+	oidcInfoCmd.Flags().StringVar(&oidcIssuer, "issuer", "", "OIDC issuer URL")
+
+	oidcIntrospectCmd := &cobra.Command{
+		Use:   "introspect [token|-|@file]",
+		Short: "Perform server-side token introspection",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			if oidcIssuer == "" || clientID == "" || clientSecret == "" {
+				exitWithError("missing required flags", fmt.Errorf("--issuer, --client-id, and --client-secret must be specified"))
+			}
+
+			input := "-"
+			if len(args) > 0 {
+				input = args[0]
+			}
+
+			tokenData, err := resolver.Resolve(input)
+			if err != nil {
+				exitWithError("could not resolve token input", err)
+			}
+
+			if outputFormat == "json" {
+				raw, err := oidc.IntrospectRaw(oidcIssuer, clientID, clientSecret, string(tokenData))
+				if err != nil {
+					exitWithError("could not perform introspection", err)
+				}
+				var pretty json.RawMessage = raw
+				out, err := json.MarshalIndent(pretty, "", "  ")
+				if err != nil {
+					fmt.Println(string(raw))
+				} else {
+					fmt.Println(string(out))
+				}
+				return
+			}
+
+			response, err := oidc.Introspect(oidcIssuer, clientID, clientSecret, string(tokenData))
+			if err != nil {
+				exitWithError("could not perform introspection", err)
+			}
+
+			render(response, nil)
+		},
+	}
+	oidcIntrospectCmd.Flags().StringVar(&oidcIssuer, "issuer", "", "OIDC issuer URL")
+	oidcIntrospectCmd.Flags().StringVar(&clientID, "client-id", "", "OIDC Client ID")
+	oidcIntrospectCmd.Flags().StringVar(&clientSecret, "client-secret", "", "OIDC Client Secret")
+
+	oidcLoginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Fetch an access token from an OIDC provider",
+		Run: func(cmd *cobra.Command, args []string) {
+			if oidcIssuer == "" || clientID == "" || clientSecret == "" {
+				exitWithError("missing required flags", fmt.Errorf("--issuer, --client-id, and --client-secret must be specified"))
+			}
+
+			opts := oidc.LoginOptions{
+				Issuer:       oidcIssuer,
+				ClientID:     clientID,
+				ClientSecret: clientSecret,
+				Username:     username,
+				Password:     password,
+				Scope:        scope,
+			}
+
+			resp, err := oidc.Login(opts)
+			if err != nil {
+				exitWithError("could not perform login", err)
+			}
+
+			if cmd.Flag("output").Changed {
+				render(resp, nil)
+			} else {
+				fmt.Println(resp.AccessToken)
+			}
+		},
+	}
+	oidcLoginCmd.Flags().StringVar(&oidcIssuer, "issuer", "", "OIDC issuer URL")
+	oidcLoginCmd.Flags().StringVar(&clientID, "client-id", "", "OIDC Client ID")
+	oidcLoginCmd.Flags().StringVar(&clientSecret, "client-secret", "", "OIDC Client Secret")
+	oidcLoginCmd.Flags().StringVar(&username, "username", "", "Username (for password grant)")
+	oidcLoginCmd.Flags().StringVar(&password, "password", "", "Password (for password grant)")
+	oidcLoginCmd.Flags().StringVar(&scope, "scope", "openid", "Token scope")
+
+	oidcCmd.AddCommand(oidcInfoCmd, oidcIntrospectCmd, oidcLoginCmd)
 	keygenCmd := &cobra.Command{
 		Use:   "keygen",
 		Short: "Generate a new asymmetric key pair (RSA, ECDSA, or EdDSA) in PEM format",
@@ -236,7 +354,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(inspectCmd, keycloakCmd, keygenCmd, createCmd, versionCmd)
+	rootCmd.AddCommand(inspectCmd, keycloakCmd, oidcCmd, keygenCmd, createCmd, versionCmd)
 	if err := rootCmd.Execute(); err != nil {
 		exitWithError("execution failed", err)
 	}
@@ -554,11 +672,11 @@ func render(info interface{}, message *string) {
 	case "table":
 		if tokenInfo, ok := info.(*models.TokenInfo); ok {
 			formatter.PrintTokenSummary(tokenInfo)
-		} else if discovery, ok := info.(*models.KeycloakDiscovery); ok {
-			formatter.PrintKeycloakTable(discovery)
+		} else if discovery, ok := info.(*models.OIDCDiscovery); ok {
+			formatter.PrintOIDCTable(discovery)
 		} else if introspection, ok := info.(models.IntrospectionResponse); ok {
 			formatter.PrintIntrospectionTable(introspection)
-		} else if tokenResp, ok := info.(*models.TokenResponse); ok {
+		} else if tokenResp, ok := info.(*models.OIDCTokenResponse); ok {
 			formatter.PrintLoginTable(tokenResp)
 		} else {
 			// Fallback
