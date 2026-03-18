@@ -69,3 +69,16 @@ func TestFetchDiscoveryRaw(t *testing.T) {
 		t.Errorf("FetchDiscoveryRaw() data = %v, want %v", string(data), expectedData)
 	}
 }
+
+func TestFetchDiscovery_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"issuer": "http://test-issuer", "jwks_uri": "http://test-issuer/jwks"`)
+	}))
+	defer server.Close()
+
+	_, err := FetchDiscovery(server.URL)
+	if err == nil {
+		t.Fatal("FetchDiscovery() error = nil, want error")
+	}
+}
