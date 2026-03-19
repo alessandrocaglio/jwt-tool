@@ -79,7 +79,7 @@ jwt-tool <TOKEN> --secret "my-super-secret"
 
 ### 3. Creating & Signing
 Create a new JWT from scratch. By default, it prints the raw signed token string to `stdout`.
-Aliases: `sign`, `gen`, `generate`.
+Aliases: `sign`.
 
 ```bash
 # HMAC (HS256) with custom subject and expiration (1 hour)
@@ -113,7 +113,18 @@ jwt-tool keygen -a ecdsa -c P384 -f mykey
 jwt-tool keygen -a eddsa -f mykey-ed
 ```
 
-### 4. OIDC & Keycloak Integration
+### 5. JWKS Generation
+Convert public keys to standardized JSON Web Key Sets (JWKS).
+
+```bash
+# Convert a public key to JWKS
+jwt-tool jwks @rsa_id.pub --kid my-key-id
+
+# Convert multiple keys to JWKS
+jwt-tool jwks @rsa_id.pub @eddsa.pub --kid rsa-key --kid ed-key
+```
+
+### 6. OIDC & Keycloak Integration
 `jwt-tool` supports generic OpenID Connect (OIDC) providers and includes a special preset for Keycloak.
 
 #### Generic OIDC
@@ -144,7 +155,7 @@ jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --cli
 jwt-tool keycloak introspect <TOKEN> --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
 ```
 
-### 5. Version
+### 7. Version
 Print the version, commit hash, and build date.
 
 ```bash
@@ -201,6 +212,11 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `-b, --bits <int>`: RSA bit size: `2048`, `3072`, `4096`.
 - `-c, --curve <string>`: ECDSA curve: `P256`, `P384`, `P521`.
 - `-f, --file <path>`: Save to file (creates `.pub` for public key). **If omitted, prints both private and public keys to stdout.**
+
+### `jwks` Flags
+- *Usage: `jwt-tool jwks [key-input]... [flags]`*
+- `--kid <string>`: Key ID for each key (repeatable).
+- `-o, --output <string>`: Output format (only `json` supported for this command).
 
 ### `oidc info` Flags
 - `--issuer <string>`: OIDC provider issuer URL.
