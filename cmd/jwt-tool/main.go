@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"jwt-tool/internal/formatter"
+	"jwt-tool/internal/jwks"
 	"jwt-tool/internal/keycloak"
 	"jwt-tool/internal/keygen"
 	"jwt-tool/internal/oidc"
@@ -36,10 +37,11 @@ var (
 	keycloakRealm string
 	oidcIssuer    string
 	// Keygen flags
-	kgAlg   string
-	kgBits  int
-	kgCurve string
-	kgFile  string
+	kgAlg    string
+	kgBits   int
+	kgCurve  string
+	kgFile   string
+	jwksKids []string
 
 	// Create flags
 	createAlg     string
@@ -344,6 +346,14 @@ func main() {
 	keygenCmd.Flags().StringVarP(&kgCurve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
 	keygenCmd.Flags().StringVarP(&kgFile, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
 
+	jwksCmd := &cobra.Command{
+		Use:   "jwks [key-input]...",
+		Short: "Convert public keys to JSON Web Key Set (JWKS)",
+		Run:   runJwks,
+	}
+
+	jwksCmd.Flags().StringSliceVar(&jwksKids, "kid", []string{}, "Key ID for each key (repeatable)")
+
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print the version information",
@@ -354,7 +364,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(inspectCmd, keycloakCmd, oidcCmd, keygenCmd, createCmd, versionCmd)
+	rootCmd.AddCommand(inspectCmd, keycloakCmd, oidcCmd, keygenCmd, createCmd, versionCmd, jwksCmd)
 	if err := rootCmd.Execute(); err != nil {
 		exitWithError("execution failed", err)
 	}
@@ -696,4 +706,35 @@ func render(info interface{}, message *string) {
 		}
 		fmt.Println(string(out))
 	}
+}
+
+func runJwks(cmd *cobra.Command, args []string) {
+	if len(args) == 0 {
+		args = []string{"-"}
+	}
+
+	var pubKeys []interface{}
+	for _, arg := range args {
+		data, err := resolver.Resolve(arg)
+		if err != nil {
+			exitWithError(fmt.Sprintf("could not resolve input %s", arg), err)
+		}
+
+		if pub, err := jwt.ParseRSAPublicKeyFromPEM(data); err == nil {
+			pubKeys = append(pubKeys, pub)
+		} else if pub, err := jwt.ParseECPublicKeyFromPEM(data); err == nil {
+			pubKeys = append(pubKeys, pub)
+		} else if pub, err := jwt.ParseEdPublicKeyFromPEM(data); err == nil {
+			pubKeys = append(pubKeys, pub)
+		} else {
+			exitWithError("could not parse public key", fmt.Errorf("tried RSA, ECDSA, and EdDSA for %s", arg))
+		}
+	}
+
+	jwkSet, err := jwks.GenerateJWKS(pubKeys, jwksKids)
+	if err != nil {
+		exitWithError("could not generate JWKS", err)
+	}
+
+	render(jwkSet, nil)
 }
