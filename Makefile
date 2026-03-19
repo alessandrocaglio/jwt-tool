@@ -19,17 +19,19 @@ RESET  := \033[0m
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build run test lint fmt vet clean install tools
+.PHONY: help build run test lint vulncheck fmt vet clean install tools
 
 help: ## Show available targets
 	@echo ""
-	@echo "$(GREEN)Available targets:$(RESET)"
+	@echo -e "$(GREEN)Available targets:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 
+check: clean fmt lint test vet vulncheck build ## Run all checks
+
 build: ## Build the CLI binary
-	@echo "$(GREEN)Building $(BINARY) $(VERSION)$(RESET)"
+	@echo -e "$(GREEN)Building $(BINARY) $(VERSION)$(RESET)"
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY) $(MAIN)
 
@@ -48,12 +50,16 @@ fmt: ## Format code
 vet: ## Run go vet
 	$(GO) vet ./...
 
+vulncheck: ## Run govulncheck
+	govulncheck ./...
+
 clean: ## Remove build artifacts
-	@echo "$(GREEN)Cleaning$(RESET)"
+	@echo -e "$(GREEN)Cleaning$(RESET)"
 	rm -rf $(BUILD_DIR)
 
-install: ## Install CLI in $GOPATH/bin
+install: fmt lint test vet vulncheck ## Install CLI in $GOPATH/bin
 	$(GO) install $(LDFLAGS) $(MAIN)
 
 tools: ## Install development tools
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
