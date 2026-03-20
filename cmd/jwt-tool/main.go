@@ -554,7 +554,7 @@ func runInspect(cmd *cobra.Command, args []string) {
 	// Step 2: Attempt verification if keys are provided
 	if secret != "" || pemPath != "" || jwksPath != "" {
 		opts := verifier.VerifyOptions{
-			Algorithms: []string{"HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"},
+			Algorithms: []string{"HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"},
 		}
 
 		if secret != "" {
