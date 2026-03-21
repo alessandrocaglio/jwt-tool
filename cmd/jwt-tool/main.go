@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"jwt-tool/internal/formatter"
 	"jwt-tool/internal/jwks"
 	"jwt-tool/internal/keycloak"
 	"jwt-tool/internal/keygen"
+	"jwt-tool/internal/keys"
 	"jwt-tool/internal/oidc"
 	"jwt-tool/internal/remote"
 	"jwt-tool/internal/resolver"
@@ -27,38 +27,73 @@ var (
 	commit  = "none"
 	date    = "unknown"
 
+	// Root flags
 	outputFormat string
-	secret       string
-	pemPath      string
-	jwksPath     string
-	leeway       string
-
-	keycloakURL   string
-	keycloakRealm string
-	oidcIssuer    string
-	// Keygen flags
-	kgAlg    string
-	kgBits   int
-	kgCurve  string
-	kgFile   string
-	jwksKids []string
-
-	// Create flags
-	createAlg     string
-	createSecret  string
-	createPem     string
-	createPayload string
-	createClaims  []string
-	createHeaders []string
-	createExp     string
-	createNbf     string
-	createIat     string
-	createIss     string
-	createSub     string
-	createAud     string
 )
 
+type inspectOptions struct {
+	secret string
+	pem    string
+	jwks   string
+	leeway string
+}
+
+type keycloakOptions struct {
+	url          string
+	realm        string
+	clientID     string
+	clientSecret string
+	username     string
+	password     string
+	scope        string
+}
+
+type oidcOptions struct {
+	issuer       string
+	clientID     string
+	clientSecret string
+	username     string
+	password     string
+	scope        string
+}
+
+type keygenOptions struct {
+	alg   string
+	bits  int
+	curve string
+	file  string
+}
+
+type jwksOptions struct {
+	kids []string
+}
+
+type createOptions struct {
+	alg     string
+	secret  string
+	pem     string
+	payload string
+	claims  []string
+	headers []string
+	exp     string
+	nbf     string
+	iat     string
+	iss     string
+	sub     string
+	aud     string
+}
+
 func main() {
+	rootCmd := newRootCmd()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func newRootCmd() *cobra.Command {
+	opts := &inspectOptions{}
+
 	rootCmd := &cobra.Command{
 		Use:   "jwt-tool [token|-|@file]",
 		Short: "A security-first JWT inspection and verification CLI",
@@ -66,72 +101,84 @@ func main() {
 	By default, it inspects the provided token (or reads from stdin if no argument is given).
 	If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
 		Args: cobra.MaximumNArgs(1),
-		Run:  runInspect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInspect(cmd, args, opts)
+		},
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format: json, table, or openid (for keycloak info)")
 
-	inspectCmd := &cobra.Command{
+	rootCmd.Flags().StringVar(&opts.secret, "secret", "", "Symmetric secret for HMAC verification")
+	rootCmd.Flags().StringVar(&opts.pem, "pem", "", "Path to RSA/ECDSA/EdDSA public key PEM file (@path)")
+	rootCmd.Flags().StringVar(&opts.jwks, "jwks", "", "Path or URL to JWKS")
+	rootCmd.Flags().StringVar(&opts.leeway, "leeway", "0s", "Clock skew tolerance (e.g. 60s)")
+
+	rootCmd.AddCommand(
+		newInspectCmd(),
+		newKeycloakCmd(),
+		newOIDCCmd(),
+		newKeygenCmd(),
+		newCreateCmd(),
+		newVersionCmd(),
+		newJwksCmd(),
+	)
+
+	return rootCmd
+}
+
+func newInspectCmd() *cobra.Command {
+	opts := &inspectOptions{}
+	cmd := &cobra.Command{
 		Use:     "inspect [token|-|@file]",
 		Aliases: []string{"decode", "verify"},
 		Short:   "Decode and inspect JWT header and claims with optional verification",
 		Long: `Decode and inspect JWT header and claims. 
 	If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
 		Args: cobra.MaximumNArgs(1),
-		Run:  runInspect,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInspect(cmd, args, opts)
+		},
 	}
 
-	// Add verification flags to both rootCmd and inspectCmd
-	for _, cmd := range []*cobra.Command{rootCmd, inspectCmd} {
-		cmd.Flags().StringVar(&secret, "secret", "", "Symmetric secret for HMAC verification")
-		cmd.Flags().StringVar(&pemPath, "pem", "", "Path to RSA/ECDSA/EdDSA public key PEM file (@path)")
-		cmd.Flags().StringVar(&jwksPath, "jwks", "", "Path or URL to JWKS")
-		cmd.Flags().StringVar(&leeway, "leeway", "0s", "Clock skew tolerance (e.g. 60s)")
-	}
+	cmd.Flags().StringVar(&opts.secret, "secret", "", "Symmetric secret for HMAC verification")
+	cmd.Flags().StringVar(&opts.pem, "pem", "", "Path to RSA/ECDSA/EdDSA public key PEM file (@path)")
+	cmd.Flags().StringVar(&opts.jwks, "jwks", "", "Path or URL to JWKS")
+	cmd.Flags().StringVar(&opts.leeway, "leeway", "0s", "Clock skew tolerance (e.g. 60s)")
 
-	keycloakCmd := &cobra.Command{
+	return cmd
+}
+
+func newKeycloakCmd() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:     "keycloak",
 		Aliases: []string{"kc"},
 		Short:   "Keycloak integration features",
 	}
 
-	keycloakInfoCmd := &cobra.Command{
+	opts := &keycloakOptions{}
+
+	infoCmd := &cobra.Command{
 		Use:   "info",
 		Short: "Fetch and display Keycloak OIDC discovery information",
-		Run: func(cmd *cobra.Command, args []string) {
-			if keycloakURL == "" || keycloakRealm == "" {
-				exitWithError("missing required flags", fmt.Errorf("--url and --realm must be specified"))
-			}
-
-			if outputFormat == "openid" {
-				data, err := keycloak.FetchDiscoveryRaw(keycloakURL, keycloakRealm)
-				if err != nil {
-					exitWithError("could not fetch discovery document", err)
-				}
-				fmt.Println(string(data))
-				return
-			}
-
-			discovery, err := keycloak.FetchDiscovery(keycloakURL, keycloakRealm)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			discovery, err := keycloak.FetchDiscovery(opts.url, opts.realm)
 			if err != nil {
-				exitWithError("could not fetch discovery document", err)
+				return fmt.Errorf("could not fetch discovery document: %w", err)
 			}
 
-			render(discovery, nil)
+			return render(discovery, nil)
 		},
 	}
+	infoCmd.Flags().StringVar(&opts.url, "url", "", "Keycloak base URL")
+	infoCmd.Flags().StringVar(&opts.realm, "realm", "", "Keycloak realm name")
 
-	keycloakInfoCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
-	keycloakInfoCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
-
-	var clientID, clientSecret string
-	keycloakIntrospectCmd := &cobra.Command{
+	introspectCmd := &cobra.Command{
 		Use:   "introspect [token|-|@file]",
 		Short: "Perform server-side token introspection",
 		Args:  cobra.MaximumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			if keycloakURL == "" || keycloakRealm == "" || clientID == "" || clientSecret == "" {
-				exitWithError("missing required flags", fmt.Errorf("--url, --realm, --client-id, and --client-secret must be specified"))
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.url == "" || opts.realm == "" || opts.clientID == "" || opts.clientSecret == "" {
+				return fmt.Errorf("--url, --realm, --client-id, and --client-secret must be specified")
 			}
 
 			input := "-"
@@ -141,140 +188,13 @@ func main() {
 
 			tokenData, err := resolver.Resolve(input)
 			if err != nil {
-				exitWithError("could not resolve token input", err)
+				return fmt.Errorf("could not resolve token input: %w", err)
 			}
 
 			if outputFormat == "json" {
-				// We must output the EXACT JSON from Keycloak
-				raw, err := keycloak.IntrospectRaw(keycloakURL, keycloakRealm, clientID, clientSecret, string(tokenData))
+				raw, err := keycloak.IntrospectRaw(opts.url, opts.realm, opts.clientID, opts.clientSecret, string(tokenData))
 				if err != nil {
-					exitWithError("could not perform introspection", err)
-				}
-				// Pretty print it as per general tool behavior for -o json
-				var pretty json.RawMessage = raw
-				out, err := json.MarshalIndent(pretty, "", "  ")
-				if err != nil {
-					fmt.Println(string(raw)) // Fallback to raw if pretty print fails
-				} else {
-					fmt.Println(string(out))
-				}
-				return
-			}
-
-			response, err := keycloak.Introspect(keycloakURL, keycloakRealm, clientID, clientSecret, string(tokenData))
-			if err != nil {
-				exitWithError("could not perform introspection", err)
-			}
-
-			render(response, nil)
-		},
-	}
-
-	keycloakIntrospectCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
-	keycloakIntrospectCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
-	keycloakIntrospectCmd.Flags().StringVar(&clientID, "client-id", "", "Keycloak Client ID")
-	keycloakIntrospectCmd.Flags().StringVar(&clientSecret, "client-secret", "", "Keycloak Client Secret")
-
-	var username, password, scope string
-	keycloakLoginCmd := &cobra.Command{
-		Use:   "login",
-		Short: "Fetch an access token from Keycloak",
-		Run: func(cmd *cobra.Command, args []string) {
-			if keycloakURL == "" || keycloakRealm == "" || clientID == "" || clientSecret == "" {
-				exitWithError("missing required flags", fmt.Errorf("--url, --realm, --client-id, and --client-secret must be specified"))
-			}
-
-			opts := keycloak.LoginOptions{
-				BaseURL:      keycloakURL,
-				Realm:        keycloakRealm,
-				ClientID:     clientID,
-				ClientSecret: clientSecret,
-				Username:     username,
-				Password:     password,
-				Scope:        scope,
-			}
-
-			resp, err := keycloak.Login(opts)
-			if err != nil {
-				exitWithError("could not perform login", err)
-			}
-
-			// Special behavior: if output is not set (default json) but we are in a terminal,
-			// we might want just the token. But let's follow the plan:
-			// Default: print only access token string if not -o json or -o table
-			if cmd.Flag("output").Changed {
-				render(resp, nil)
-			} else {
-				fmt.Println(resp.AccessToken)
-			}
-		},
-	}
-
-	keycloakLoginCmd.Flags().StringVar(&keycloakURL, "url", "", "Keycloak base URL")
-	keycloakLoginCmd.Flags().StringVar(&keycloakRealm, "realm", "", "Keycloak realm name")
-	keycloakLoginCmd.Flags().StringVar(&clientID, "client-id", "", "Keycloak Client ID")
-	keycloakLoginCmd.Flags().StringVar(&clientSecret, "client-secret", "", "Keycloak Client Secret")
-	keycloakLoginCmd.Flags().StringVar(&username, "username", "", "Username (for password grant)")
-	keycloakLoginCmd.Flags().StringVar(&password, "password", "", "Password (for password grant)")
-	keycloakLoginCmd.Flags().StringVar(&scope, "scope", "openid", "Token scope")
-
-	keycloakCmd.AddCommand(keycloakInfoCmd, keycloakIntrospectCmd, keycloakLoginCmd)
-
-	oidcCmd := &cobra.Command{
-		Use:   "oidc",
-		Short: "OIDC integration features",
-	}
-
-	oidcInfoCmd := &cobra.Command{
-		Use:   "info",
-		Short: "Fetch and display OIDC discovery information",
-		Run: func(cmd *cobra.Command, args []string) {
-			if oidcIssuer == "" {
-				exitWithError("missing required flags", fmt.Errorf("--issuer must be specified"))
-			}
-
-			if outputFormat == "openid" {
-				data, err := oidc.FetchDiscoveryRaw(oidcIssuer)
-				if err != nil {
-					exitWithError("could not fetch discovery document", err)
-				}
-				fmt.Println(string(data))
-				return
-			}
-
-			discovery, err := oidc.FetchDiscovery(oidcIssuer)
-			if err != nil {
-				exitWithError("could not fetch discovery document", err)
-			}
-
-			render(discovery, nil)
-		},
-	}
-	oidcInfoCmd.Flags().StringVar(&oidcIssuer, "issuer", "", "OIDC issuer URL")
-
-	oidcIntrospectCmd := &cobra.Command{
-		Use:   "introspect [token|-|@file]",
-		Short: "Perform server-side token introspection",
-		Args:  cobra.MaximumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			if oidcIssuer == "" || clientID == "" || clientSecret == "" {
-				exitWithError("missing required flags", fmt.Errorf("--issuer, --client-id, and --client-secret must be specified"))
-			}
-
-			input := "-"
-			if len(args) > 0 {
-				input = args[0]
-			}
-
-			tokenData, err := resolver.Resolve(input)
-			if err != nil {
-				exitWithError("could not resolve token input", err)
-			}
-
-			if outputFormat == "json" {
-				raw, err := oidc.IntrospectRaw(oidcIssuer, clientID, clientSecret, string(tokenData))
-				if err != nil {
-					exitWithError("could not perform introspection", err)
+					return fmt.Errorf("could not perform introspection: %w", err)
 				}
 				var pretty json.RawMessage = raw
 				out, err := json.MarshalIndent(pretty, "", "  ")
@@ -283,78 +203,237 @@ func main() {
 				} else {
 					fmt.Println(string(out))
 				}
-				return
+				return nil
 			}
 
-			response, err := oidc.Introspect(oidcIssuer, clientID, clientSecret, string(tokenData))
+			response, err := keycloak.Introspect(opts.url, opts.realm, opts.clientID, opts.clientSecret, string(tokenData))
 			if err != nil {
-				exitWithError("could not perform introspection", err)
+				return fmt.Errorf("could not perform introspection: %w", err)
 			}
 
-			render(response, nil)
+			return render(response, nil)
 		},
 	}
-	oidcIntrospectCmd.Flags().StringVar(&oidcIssuer, "issuer", "", "OIDC issuer URL")
-	oidcIntrospectCmd.Flags().StringVar(&clientID, "client-id", "", "OIDC Client ID")
-	oidcIntrospectCmd.Flags().StringVar(&clientSecret, "client-secret", "", "OIDC Client Secret")
+	introspectCmd.Flags().StringVar(&opts.url, "url", "", "Keycloak base URL")
+	introspectCmd.Flags().StringVar(&opts.realm, "realm", "", "Keycloak realm name")
+	introspectCmd.Flags().StringVar(&opts.clientID, "client-id", "", "Keycloak Client ID")
+	introspectCmd.Flags().StringVar(&opts.clientSecret, "client-secret", "", "Keycloak Client Secret")
 
-	oidcLoginCmd := &cobra.Command{
+	loginCmd := &cobra.Command{
 		Use:   "login",
-		Short: "Fetch an access token from an OIDC provider",
-		Run: func(cmd *cobra.Command, args []string) {
-			if oidcIssuer == "" || clientID == "" || clientSecret == "" {
-				exitWithError("missing required flags", fmt.Errorf("--issuer, --client-id, and --client-secret must be specified"))
+		Short: "Fetch an access token from Keycloak",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.url == "" || opts.realm == "" || opts.clientID == "" || opts.clientSecret == "" {
+				return fmt.Errorf("--url, --realm, --client-id, and --client-secret must be specified")
 			}
 
-			opts := oidc.LoginOptions{
-				Issuer:       oidcIssuer,
-				ClientID:     clientID,
-				ClientSecret: clientSecret,
-				Username:     username,
-				Password:     password,
-				Scope:        scope,
+			loginOpts := keycloak.LoginOptions{
+				BaseURL:      opts.url,
+				Realm:        opts.realm,
+				ClientID:     opts.clientID,
+				ClientSecret: opts.clientSecret,
+				Username:     opts.username,
+				Password:     opts.password,
+				Scope:        opts.scope,
 			}
 
-			resp, err := oidc.Login(opts)
+			resp, err := keycloak.Login(loginOpts)
 			if err != nil {
-				exitWithError("could not perform login", err)
+				return fmt.Errorf("could not perform login: %w", err)
 			}
 
 			if cmd.Flag("output").Changed {
-				render(resp, nil)
+				return render(resp, nil)
 			} else {
 				fmt.Println(resp.AccessToken)
 			}
+			return nil
 		},
 	}
-	oidcLoginCmd.Flags().StringVar(&oidcIssuer, "issuer", "", "OIDC issuer URL")
-	oidcLoginCmd.Flags().StringVar(&clientID, "client-id", "", "OIDC Client ID")
-	oidcLoginCmd.Flags().StringVar(&clientSecret, "client-secret", "", "OIDC Client Secret")
-	oidcLoginCmd.Flags().StringVar(&username, "username", "", "Username (for password grant)")
-	oidcLoginCmd.Flags().StringVar(&password, "password", "", "Password (for password grant)")
-	oidcLoginCmd.Flags().StringVar(&scope, "scope", "openid", "Token scope")
+	loginCmd.Flags().StringVar(&opts.url, "url", "", "Keycloak base URL")
+	loginCmd.Flags().StringVar(&opts.realm, "realm", "", "Keycloak realm name")
+	loginCmd.Flags().StringVar(&opts.clientID, "client-id", "", "Keycloak Client ID")
+	loginCmd.Flags().StringVar(&opts.clientSecret, "client-secret", "", "Keycloak Client Secret")
+	loginCmd.Flags().StringVar(&opts.username, "username", "", "Username (for password grant)")
+	loginCmd.Flags().StringVar(&opts.password, "password", "", "Password (for password grant)")
+	loginCmd.Flags().StringVar(&opts.scope, "scope", "openid", "Token scope")
 
-	oidcCmd.AddCommand(oidcInfoCmd, oidcIntrospectCmd, oidcLoginCmd)
-	keygenCmd := &cobra.Command{
+	cmd.AddCommand(infoCmd, introspectCmd, loginCmd)
+	return cmd
+}
+
+func newOIDCCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "oidc",
+		Short: "OIDC integration features",
+	}
+
+	opts := &oidcOptions{}
+
+	infoCmd := &cobra.Command{
+		Use:   "info",
+		Short: "Fetch and display OIDC discovery information",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.issuer == "" {
+				return fmt.Errorf("--issuer must be specified")
+			}
+
+			if outputFormat == "openid" {
+				data, err := oidc.FetchDiscoveryRaw(opts.issuer)
+				if err != nil {
+					return fmt.Errorf("could not fetch discovery document: %w", err)
+				}
+				fmt.Println(string(data))
+				return nil
+			}
+
+			discovery, err := oidc.FetchDiscovery(opts.issuer)
+			if err != nil {
+				return fmt.Errorf("could not fetch discovery document: %w", err)
+			}
+
+			return render(discovery, nil)
+		},
+	}
+	infoCmd.Flags().StringVar(&opts.issuer, "issuer", "", "OIDC issuer URL")
+
+	introspectCmd := &cobra.Command{
+		Use:   "introspect [token|-|@file]",
+		Short: "Perform server-side token introspection",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.issuer == "" || opts.clientID == "" || opts.clientSecret == "" {
+				return fmt.Errorf("--issuer, --client-id, and --client-secret must be specified")
+			}
+
+			input := "-"
+			if len(args) > 0 {
+				input = args[0]
+			}
+
+			tokenData, err := resolver.Resolve(input)
+			if err != nil {
+				return fmt.Errorf("could not resolve token input: %w", err)
+			}
+
+			if outputFormat == "json" {
+				raw, err := oidc.IntrospectRaw(opts.issuer, opts.clientID, opts.clientSecret, string(tokenData))
+				if err != nil {
+					return fmt.Errorf("could not perform introspection: %w", err)
+				}
+				var pretty json.RawMessage = raw
+				out, err := json.MarshalIndent(pretty, "", "  ")
+				if err != nil {
+					fmt.Println(string(raw))
+				} else {
+					fmt.Println(string(out))
+				}
+				return nil
+			}
+
+			response, err := oidc.Introspect(opts.issuer, opts.clientID, opts.clientSecret, string(tokenData))
+			if err != nil {
+				return fmt.Errorf("could not perform introspection: %w", err)
+			}
+
+			return render(response, nil)
+		},
+	}
+	introspectCmd.Flags().StringVar(&opts.issuer, "issuer", "", "OIDC issuer URL")
+	introspectCmd.Flags().StringVar(&opts.clientID, "client-id", "", "OIDC Client ID")
+	introspectCmd.Flags().StringVar(&opts.clientSecret, "client-secret", "", "OIDC Client Secret")
+
+	loginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Fetch an access token from an OIDC provider",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.issuer == "" || opts.clientID == "" || opts.clientSecret == "" {
+				return fmt.Errorf("--issuer, --client-id, and --client-secret must be specified")
+			}
+
+			loginOpts := oidc.LoginOptions{
+				Issuer:       opts.issuer,
+				ClientID:     opts.clientID,
+				ClientSecret: opts.clientSecret,
+				Username:     opts.username,
+				Password:     opts.password,
+				Scope:        opts.scope,
+			}
+
+			resp, err := oidc.Login(loginOpts)
+			if err != nil {
+				return fmt.Errorf("could not perform login: %w", err)
+			}
+
+			if cmd.Flag("output").Changed {
+				return render(resp, nil)
+			} else {
+				fmt.Println(resp.AccessToken)
+			}
+			return nil
+		},
+	}
+	loginCmd.Flags().StringVar(&opts.issuer, "issuer", "", "OIDC issuer URL")
+	loginCmd.Flags().StringVar(&opts.clientID, "client-id", "", "OIDC Client ID")
+	loginCmd.Flags().StringVar(&opts.clientSecret, "client-secret", "", "OIDC Client Secret")
+	loginCmd.Flags().StringVar(&opts.username, "username", "", "Username (for password grant)")
+	loginCmd.Flags().StringVar(&opts.password, "password", "", "Password (for password grant)")
+	loginCmd.Flags().StringVar(&opts.scope, "scope", "openid", "Token scope")
+
+	cmd.AddCommand(infoCmd, introspectCmd, loginCmd)
+	return cmd
+}
+
+func newKeygenCmd() *cobra.Command {
+	opts := &keygenOptions{}
+	cmd := &cobra.Command{
 		Use:   "keygen",
 		Short: "Generate a new asymmetric key pair (RSA, ECDSA, or EdDSA) in PEM format",
-		Run:   runKeygen,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runKeygen(cmd, args, opts)
+		},
 	}
 
-	keygenCmd.Flags().StringVarP(&kgAlg, "alg", "a", "rsa", "Algorithm: rsa, ecdsa, or eddsa")
-	keygenCmd.Flags().IntVarP(&kgBits, "bits", "b", 2048, "RSA bit size: 2048, 3072, 4096")
-	keygenCmd.Flags().StringVarP(&kgCurve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
-	keygenCmd.Flags().StringVarP(&kgFile, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
+	cmd.Flags().StringVarP(&opts.alg, "alg", "a", "rsa", "Algorithm: rsa, ecdsa, or eddsa")
+	cmd.Flags().IntVarP(&opts.bits, "bits", "b", 2048, "RSA bit size: 2048, 3072, 4096")
+	cmd.Flags().StringVarP(&opts.curve, "curve", "c", "P256", "ECDSA curve: P256, P384, P521")
+	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Save to file (e.g. 'id_rsa' creates 'id_rsa' and 'id_rsa.pub')")
 
-	jwksCmd := &cobra.Command{
-		Use:   "jwks [key-input]...",
-		Short: "Convert public keys to JSON Web Key Set (JWKS)",
-		Run:   runJwks,
+	return cmd
+}
+
+func newCreateCmd() *cobra.Command {
+	opts := &createOptions{}
+	cmd := &cobra.Command{
+		Use:     "create",
+		Aliases: []string{"sign"},
+		Short:   "Create and sign a new JWT",
+		Long: `Create and sign a new JWT from scratch.
+	Example:
+	jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreate(cmd, args, opts)
+		},
 	}
 
-	jwksCmd.Flags().StringSliceVar(&jwksKids, "kid", []string{}, "Key ID for each key (repeatable)")
+	cmd.Flags().StringVar(&opts.alg, "alg", "HS256", "Algorithm: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, EdDSA")
+	cmd.Flags().StringVar(&opts.secret, "secret", "", "Symmetric secret for HMAC")
+	cmd.Flags().StringVar(&opts.pem, "pem", "", "Path to private key PEM file (@path)")
+	cmd.Flags().StringVar(&opts.payload, "payload", "", "Path to JSON file for bulk payload (@path)")
+	cmd.Flags().StringSliceVar(&opts.claims, "claim", []string{}, "Custom claims in key=value format (repeatable)")
+	cmd.Flags().StringSliceVar(&opts.headers, "header", []string{}, "Custom header fields in key=value format (repeatable)")
+	cmd.Flags().StringVar(&opts.exp, "exp", "", "Expiration time (shorthand duration, e.g. 1h, 1d)")
+	cmd.Flags().StringVar(&opts.nbf, "nbf", "", "Not before time (shorthand duration, e.g. 1m)")
+	cmd.Flags().StringVar(&opts.iat, "iat", "0s", "Issued at time (offset duration, default 0s means now)")
+	cmd.Flags().StringVar(&opts.iss, "iss", "", "Issuer claim")
+	cmd.Flags().StringVar(&opts.sub, "sub", "", "Subject claim")
+	cmd.Flags().StringVar(&opts.aud, "aud", "", "Audience claim")
 
-	versionCmd := &cobra.Command{
+	return cmd
+}
+
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -363,156 +442,122 @@ func main() {
 			fmt.Printf("build date: %s\n", date)
 		},
 	}
+}
 
-	rootCmd.AddCommand(inspectCmd, keycloakCmd, oidcCmd, keygenCmd, createCmd, versionCmd, jwksCmd)
-	if err := rootCmd.Execute(); err != nil {
-		exitWithError("execution failed", err)
+func newJwksCmd() *cobra.Command {
+	opts := &jwksOptions{}
+	cmd := &cobra.Command{
+		Use:   "jwks [key-input]...",
+		Short: "Convert public keys to JSON Web Key Set (JWKS)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runJwks(cmd, args, opts)
+		},
 	}
+
+	cmd.Flags().StringSliceVar(&opts.kids, "kid", []string{}, "Key ID for each key (repeatable)")
+	return cmd
 }
 
-var createCmd = &cobra.Command{
-	Use:     "create",
-	Aliases: []string{"sign"},
-	Short:   "Create and sign a new JWT",
-	Long: `Create and sign a new JWT from scratch.
-	Example:
-	jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h`,
-	Run: runCreate,
-}
-
-func init() {
-	createCmd.Flags().StringVar(&createAlg, "alg", "HS256", "Algorithm: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, EdDSA")
-	createCmd.Flags().StringVar(&createSecret, "secret", "", "Symmetric secret for HMAC")
-	createCmd.Flags().StringVar(&createPem, "pem", "", "Path to private key PEM file (@path)")
-	createCmd.Flags().StringVar(&createPayload, "payload", "", "Path to JSON file for bulk payload (@path)")
-	createCmd.Flags().StringSliceVar(&createClaims, "claim", []string{}, "Custom claims in key=value format (repeatable)")
-	createCmd.Flags().StringSliceVar(&createHeaders, "header", []string{}, "Custom header fields in key=value format (repeatable)")
-	createCmd.Flags().StringVar(&createExp, "exp", "", "Expiration time (shorthand duration, e.g. 1h, 1d)")
-	createCmd.Flags().StringVar(&createNbf, "nbf", "", "Not before time (shorthand duration, e.g. 1m)")
-	createCmd.Flags().StringVar(&createIat, "iat", "0s", "Issued at time (offset duration, default 0s means now)")
-	createCmd.Flags().StringVar(&createIss, "iss", "", "Issuer claim")
-	createCmd.Flags().StringVar(&createSub, "sub", "", "Subject claim")
-	createCmd.Flags().StringVar(&createAud, "aud", "", "Audience claim")
-}
-
-func runCreate(cmd *cobra.Command, args []string) {
+func runCreate(cmd *cobra.Command, args []string, cOpts *createOptions) error {
 	opts := signer.SignOptions{
-		Algorithm: createAlg,
+		Algorithm: cOpts.alg,
 		Claims:    jwt.MapClaims{},
 		Header:    make(map[string]interface{}),
 	}
 
 	// 1. Resolve Keys
-	if createSecret != "" {
-		s, err := resolver.Resolve(createSecret)
+	if cOpts.secret != "" {
+		s, err := resolver.Resolve(cOpts.secret)
 		if err != nil {
-			exitWithError("could not resolve secret", err)
+			return fmt.Errorf("could not resolve secret: %w", err)
 		}
 		opts.Secret = s
 	}
 
-	if createPem != "" {
-		p, err := resolver.Resolve(createPem)
+	if cOpts.pem != "" {
+		p, err := resolver.Resolve(cOpts.pem)
 		if err != nil {
-			exitWithError("could not resolve PEM path", err)
+			return fmt.Errorf("could not resolve PEM path: %w", err)
 		}
 
-		// Try to parse as private keys
-		if priv, err := jwt.ParseRSAPrivateKeyFromPEM(p); err == nil {
-			opts.PrivateKey = priv
-		} else if priv, err := jwt.ParseECPrivateKeyFromPEM(p); err == nil {
-			opts.PrivateKey = priv
-		} else if priv, err := jwt.ParseEdPrivateKeyFromPEM(p); err == nil {
-			opts.PrivateKey = priv
-		} else {
-			exitWithError("could not parse private key PEM", fmt.Errorf("tried RSA, ECDSA, and EdDSA"))
+		priv, err := keys.ParsePrivateKey(p)
+		if err != nil {
+			return fmt.Errorf("could not parse private key: %w", err)
 		}
+		opts.PrivateKey = priv
 	}
 
 	// 2. Load Payload File
-	if createPayload != "" {
-		data, err := resolver.Resolve(createPayload)
+	if cOpts.payload != "" {
+		data, err := resolver.Resolve(cOpts.payload)
 		if err != nil {
-			exitWithError("could not resolve payload file", err)
+			return fmt.Errorf("could not resolve payload file: %w", err)
 		}
 		if err := json.Unmarshal(data, &opts.Claims); err != nil {
-			exitWithError("could not parse payload JSON", err)
+			return fmt.Errorf("could not parse payload JSON: %w", err)
 		}
 	}
 
 	// 3. Apply Shorthand Claims
 	now := time.Now()
-	if createExp != "" {
-		d, err := time.ParseDuration(createExp)
+	if cOpts.exp != "" {
+		d, err := time.ParseDuration(cOpts.exp)
 		if err != nil {
-			exitWithError("invalid exp duration", err)
+			return fmt.Errorf("invalid exp duration: %w", err)
 		}
 		opts.Claims["exp"] = jwt.NewNumericDate(now.Add(d))
 	}
-	if createNbf != "" {
-		d, err := time.ParseDuration(createNbf)
+	if cOpts.nbf != "" {
+		d, err := time.ParseDuration(cOpts.nbf)
 		if err != nil {
-			exitWithError("invalid nbf duration", err)
+			return fmt.Errorf("invalid nbf duration: %w", err)
 		}
 		opts.Claims["nbf"] = jwt.NewNumericDate(now.Add(d))
 	}
-	if createIat != "" {
-		d, err := time.ParseDuration(createIat)
+	if cOpts.iat != "" {
+		d, err := time.ParseDuration(cOpts.iat)
 		if err != nil {
-			exitWithError("invalid iat duration", err)
+			return fmt.Errorf("invalid iat duration: %w", err)
 		}
 		opts.Claims["iat"] = jwt.NewNumericDate(now.Add(d))
 	}
-	if createIss != "" {
-		opts.Claims["iss"] = createIss
+	if cOpts.iss != "" {
+		opts.Claims["iss"] = cOpts.iss
 	}
-	if createSub != "" {
-		opts.Claims["sub"] = createSub
+	if cOpts.sub != "" {
+		opts.Claims["sub"] = cOpts.sub
 	}
-	if createAud != "" {
-		opts.Claims["aud"] = createAud
+	if cOpts.aud != "" {
+		opts.Claims["aud"] = cOpts.aud
 	}
 
 	// 4. Parse Individual Claims
-	for _, c := range createClaims {
-		parts := strings.SplitN(c, "=", 2)
-		if len(parts) != 2 {
-			exitWithError("invalid claim format", fmt.Errorf("expected key=value, got %s", c))
-		}
-		// Try to parse as JSON if it looks like one, otherwise treat as string
-		var val interface{}
-		if err := json.Unmarshal([]byte(parts[1]), &val); err != nil {
-			val = parts[1]
-		}
-		opts.Claims[parts[0]] = val
+	claims, err := signer.ParseKeyValueSlice(cOpts.claims)
+	if err != nil {
+		return fmt.Errorf("could not parse claims: %w", err)
+	}
+	for k, v := range claims {
+		opts.Claims[k] = v
 	}
 
 	// 5. Parse Individual Headers
-	for _, h := range createHeaders {
-		parts := strings.SplitN(h, "=", 2)
-		if len(parts) != 2 {
-			exitWithError("invalid header format", fmt.Errorf("expected key=value, got %s", h))
-		}
-		var val interface{}
-		if err := json.Unmarshal([]byte(parts[1]), &val); err != nil {
-			val = parts[1]
-		}
-		opts.Header[parts[0]] = val
+	headers, err := signer.ParseKeyValueSlice(cOpts.headers)
+	if err != nil {
+		return fmt.Errorf("could not parse headers: %w", err)
+	}
+	for k, v := range headers {
+		opts.Header[k] = v
 	}
 
 	// 6. Security Warnings
-	if _, ok := opts.Claims["exp"]; !ok {
-		fmt.Fprintf(os.Stderr, "warning: no expiration ('exp') claim provided. The token will never expire.\n")
-	} else if exp, ok := opts.Claims["exp"].(*jwt.NumericDate); ok {
-		if exp.Time.Sub(now) > 24*time.Hour {
-			fmt.Fprintf(os.Stderr, "warning: expiration is more than 24 hours in the future.\n")
-		}
+	for _, w := range opts.ValidateExpiration() {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 
 	// 7. Sign
 	token, err := signer.Sign(opts)
 	if err != nil {
-		exitWithError("could not sign token", err)
+		return fmt.Errorf("could not sign token: %w", err)
 	}
 
 	// 8. Output
@@ -520,18 +565,19 @@ func runCreate(cmd *cobra.Command, args []string) {
 		if outputFormat == "json" || outputFormat == "table" {
 			info, err := verifier.Decode(token)
 			if err != nil {
-				exitWithError("could not decode signed token for output", err)
+				return fmt.Errorf("could not decode signed token for output: %w", err)
 			}
-			render(info, nil)
+			return render(info, nil)
 		} else {
 			fmt.Println(token)
 		}
 	} else {
 		fmt.Println(token)
 	}
+	return nil
 }
 
-func runInspect(cmd *cobra.Command, args []string) {
+func runInspect(cmd *cobra.Command, args []string, iOpts *inspectOptions) error {
 	input := "-"
 	if len(args) > 0 {
 		input = args[0]
@@ -539,62 +585,57 @@ func runInspect(cmd *cobra.Command, args []string) {
 
 	data, err := resolver.Resolve(input)
 	if err != nil {
-		exitWithError("could not resolve input", err)
+		return fmt.Errorf("could not resolve input: %w", err)
 	}
 
 	// Step 1: Always Decode
 	info, err := verifier.Decode(string(data))
 	if err != nil {
-		exitWithError("could not decode token", err)
+		return fmt.Errorf("could not decode token: %w", err)
 	}
 
 	validationFailed := false
 	leewayDisplay := "0s"
 
 	// Step 2: Attempt verification if keys are provided
-	if secret != "" || pemPath != "" || jwksPath != "" {
+	if iOpts.secret != "" || iOpts.pem != "" || iOpts.jwks != "" {
 		opts := verifier.VerifyOptions{
 			Algorithms: []string{"HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"},
 		}
 
-		if secret != "" {
-			s, err := resolver.Resolve(secret)
+		if iOpts.secret != "" {
+			s, err := resolver.Resolve(iOpts.secret)
 			if err != nil {
-				exitWithError("could not resolve secret", err)
+				return fmt.Errorf("could not resolve secret: %w", err)
 			}
 			opts.Secret = s
 		}
 
-		if pemPath != "" {
-			p, err := resolver.Resolve(pemPath)
+		if iOpts.pem != "" {
+			p, err := resolver.Resolve(iOpts.pem)
 			if err != nil {
-				exitWithError("could not resolve PEM path", err)
+				return fmt.Errorf("could not resolve PEM path: %w", err)
 			}
 
-			// Try to parse as RSA, then ECDSA, then EdDSA
-			if pub, err := jwt.ParseRSAPublicKeyFromPEM(p); err == nil {
-				opts.PublicKey = pub
-			} else if pub, err := jwt.ParseECPublicKeyFromPEM(p); err == nil {
-				opts.PublicKey = pub
-			} else if pub, err := jwt.ParseEdPublicKeyFromPEM(p); err == nil {
-				opts.PublicKey = pub
-			} else {
-				exitWithError("could not parse PEM", fmt.Errorf("tried RSA, ECDSA, and EdDSA public keys"))
+			pub, err := keys.ParsePublicKey(p)
+			if err != nil {
+				return fmt.Errorf("could not parse public key: %w", err)
 			}
+			opts.PublicKey = pub
 		}
 
-		if jwksPath != "" {
-			jwks, err := remote.LoadJWKS(jwksPath)
+		if iOpts.jwks != "" {
+			jwks, err := remote.LoadJWKS(iOpts.jwks)
 			if err != nil {
-				exitWithError("could not load JWKS", err)
+				return fmt.Errorf("could not load JWKS: %w", err)
 			}
 			opts.JWKS = jwks
 		}
 
-		if leeway != "" {
-			d, err := time.ParseDuration(leeway)
+		if iOpts.leeway != "" {
+			d, err := time.ParseDuration(iOpts.leeway)
 			if err != nil {
-				exitWithError("could not parse leeway duration", err)
+				return fmt.Errorf("could not parse leeway duration: %w", err)
 			}
 
 			if d > 5*time.Minute {
@@ -628,56 +669,55 @@ func runInspect(cmd *cobra.Command, args []string) {
 	}
 
 	// Step 3: Unified Render
-	render(info, nil)
+	if err := render(info, nil); err != nil {
+		return err
+	}
 
 	// Step 4: Conditional Exit
 	if validationFailed {
 		os.Exit(2)
 	}
+	return nil
 }
 
-func runKeygen(cmd *cobra.Command, args []string) {
+func runKeygen(cmd *cobra.Command, args []string, kOpts *keygenOptions) error {
 	var kp *keygen.KeyPair
 	var err error
 
-	switch kgAlg {
+	switch kOpts.alg {
 	case "rsa":
-		kp, err = keygen.GenerateRSA(kgBits)
+		kp, err = keygen.GenerateRSA(kOpts.bits)
 	case "ecdsa":
-		kp, err = keygen.GenerateECDSA(kgCurve)
+		kp, err = keygen.GenerateECDSA(kOpts.curve)
 	case "eddsa":
 		kp, err = keygen.GenerateEdDSA()
 	default:
-		exitWithError("unsupported algorithm", fmt.Errorf("%s", kgAlg))
+		return fmt.Errorf("unsupported algorithm: %s", kOpts.alg)
 	}
 
 	if err != nil {
-		exitWithError("could not generate keys", err)
+		return fmt.Errorf("could not generate keys: %w", err)
 	}
 
-	if kgFile != "" {
-		privFile := kgFile
-		pubFile := kgFile + ".pub"
+	if kOpts.file != "" {
+		privFile := kOpts.file
+		pubFile := kOpts.file + ".pub"
 
 		if err := os.WriteFile(privFile, kp.PrivatePEM, 0600); err != nil {
-			exitWithError("could not write private key", err)
+			return fmt.Errorf("could not write private key: %w", err)
 		}
 		if err := os.WriteFile(pubFile, kp.PublicPEM, 0644); err != nil {
-			exitWithError("could not write public key", err)
+			return fmt.Errorf("could not write public key: %w", err)
 		}
 		fmt.Printf("Keys saved to %s and %s\n", privFile, pubFile)
 	} else {
 		fmt.Print(string(kp.PrivatePEM))
 		fmt.Print(string(kp.PublicPEM))
 	}
+	return nil
 }
 
-func exitWithError(context string, err error) {
-	fmt.Fprintf(os.Stderr, "Error: %s: %v\n", context, err)
-	os.Exit(1)
-}
-
-func render(info interface{}, message *string) {
+func render(info interface{}, message *string) error {
 	switch outputFormat {
 	case "table":
 		if tokenInfo, ok := info.(*models.TokenInfo); ok {
@@ -692,7 +732,7 @@ func render(info interface{}, message *string) {
 			// Fallback
 			out, err := json.MarshalIndent(info, "", "  ")
 			if err != nil {
-				exitWithError("could not format JSON", err)
+				return fmt.Errorf("could not format JSON: %w", err)
 			}
 			fmt.Println(string(out))
 		}
@@ -702,13 +742,14 @@ func render(info interface{}, message *string) {
 	default:
 		out, err := json.MarshalIndent(info, "", "  ")
 		if err != nil {
-			exitWithError("could not format JSON", err)
+			return fmt.Errorf("could not format JSON: %w", err)
 		}
 		fmt.Println(string(out))
 	}
+	return nil
 }
 
-func runJwks(cmd *cobra.Command, args []string) {
+func runJwks(cmd *cobra.Command, args []string, jOpts *jwksOptions) error {
 	if len(args) == 0 {
 		args = []string{"-"}
 	}
@@ -717,24 +758,20 @@ func runJwks(cmd *cobra.Command, args []string) {
 	for _, arg := range args {
 		data, err := resolver.Resolve(arg)
 		if err != nil {
-			exitWithError(fmt.Sprintf("could not resolve input %s", arg), err)
+			return fmt.Errorf("could not resolve input %s: %w", arg, err)
 		}
 
-		if pub, err := jwt.ParseRSAPublicKeyFromPEM(data); err == nil {
-			pubKeys = append(pubKeys, pub)
-		} else if pub, err := jwt.ParseECPublicKeyFromPEM(data); err == nil {
-			pubKeys = append(pubKeys, pub)
-		} else if pub, err := jwt.ParseEdPublicKeyFromPEM(data); err == nil {
-			pubKeys = append(pubKeys, pub)
-		} else {
-			exitWithError("could not parse public key", fmt.Errorf("tried RSA, ECDSA, and EdDSA for %s", arg))
+		pub, err := keys.ParsePublicKey(data)
+		if err != nil {
+			return fmt.Errorf("could not parse public key for %s: %w", arg, err)
 		}
+		pubKeys = append(pubKeys, pub)
 	}
 
-	jwkSet, err := jwks.GenerateJWKS(pubKeys, jwksKids)
+	jwkSet, err := jwks.GenerateJWKS(pubKeys, jOpts.kids)
 	if err != nil {
-		exitWithError("could not generate JWKS", err)
+		return fmt.Errorf("could not generate JWKS: %w", err)
 	}
 
-	render(jwkSet, nil)
+	return render(jwkSet, nil)
 }
