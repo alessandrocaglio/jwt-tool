@@ -1,5 +1,5 @@
-BINARY := jwt-tool
-MAIN := ./cmd/jwt-tool
+BINARY := jawt
+MAIN := ./cmd/jawt
 BUILD_DIR := bin
 
 GO := go

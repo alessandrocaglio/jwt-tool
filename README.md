@@ -1,9 +1,13 @@
-# jwt-tool 🛠️
+# JAWT 🛠️
+
+<p align="center">
+  <img src="assets/jawt-logo.png" alt="JAWT Logo" width="300">
+</p>
 
 A security-first JWT CLI for developers and platform engineers for inspecting and verifying JSON Web Tokens (JWT). Built with Go for speed, reliability, and ease of use in both manual workflows and automated pipelines.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Security: Fast](https://img.shields.io/badge/Performance-%3C50ms-green)](https://github.com/alessandrocaglio/jwt-tool)
+[![Security: Fast](https://img.shields.io/badge/Performance-%3C50ms-green)](https://github.com/alessandrocaglio/jawt)
 
 ## 🚀 Key Features
 
@@ -23,14 +27,14 @@ A security-first JWT CLI for developers and platform engineers for inspecting an
 
 ```bash
 # Clone the repository
-git clone https://github.com/alessandrocaglio/jwt-tool.git
-cd jwt-tool
+git clone https://github.com/alessandrocaglio/jawt.git
+cd jawt
 
 # Build the binary
-go build -o jwt-tool ./cmd/jwt-tool/main.go
+go build -o jawt ./cmd/jawt/main.go
 
 # (Optional) Move to your PATH
-sudo mv jwt-tool /usr/local/bin/
+sudo mv jawt /usr/local/bin/
 ```
 
 ---
@@ -39,23 +43,23 @@ sudo mv jwt-tool /usr/local/bin/
 
 ### 1. Inspecting & Decoding
 Parse the header and payload without performing cryptographic verification.
-`jwt-tool` defaults to this action if no subcommand is provided.
+`jawt` defaults to this action if no subcommand is provided.
 
 ```bash
 # Default action (direct string)
-jwt-tool <TOKEN>
+jawt <TOKEN>
 
 # Default action (stdin)
-echo <TOKEN> | jwt-tool
+echo <TOKEN> | jawt
 
 # Explicit subcommand
-jwt-tool inspect <TOKEN>
+jawt inspect <TOKEN>
 
 # From a file
-jwt-tool inspect @path/to/token.jwt
+jawt inspect @path/to/token.jwt
 
 # Human-readable table output
-jwt-tool <TOKEN> -o table
+jawt <TOKEN> -o table
 ```
 
 ### 2. Verifying
@@ -65,16 +69,16 @@ Cryptographically validate the signature and time-based claims by providing a ve
 
 ```bash
 # Using a symmetric secret
-jwt-tool inspect <TOKEN> --secret "my-super-secret"
+jawt inspect <TOKEN> --secret "my-super-secret"
 
 # Using a Public Key (RSA/ECDSA/EdDSA)
-jwt-tool inspect <TOKEN> --pem @public_key.pem
+jawt inspect <TOKEN> --pem @public_key.pem
 
 # Using a remote JWKS endpoint
-jwt-tool inspect <TOKEN> --jwks https://auth.example.com/.well-known/jwks.json
+jawt inspect <TOKEN> --jwks https://auth.example.com/.well-known/jwks.json
 
 # Verification also works with the default command
-jwt-tool <TOKEN> --secret "my-super-secret"
+jawt <TOKEN> --secret "my-super-secret"
 ```
 
 ### 3. Creating & Signing
@@ -83,19 +87,19 @@ Aliases: `sign`.
 
 ```bash
 # HMAC (HS256) with custom subject and expiration (1 hour)
-jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h
+jawt create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h
 
 # Using the 'sign' alias
-jwt-tool sign --alg HS256 --secret "my-secret" --sub "user123" --exp 1h
+jawt sign --alg HS256 --secret "my-secret" --sub "user123" --exp 1h
 
 # RSA (RS256) with private key and custom claims
-jwt-tool create --alg RS256 --pem @private_key.pem --claim role=admin --claim id=456
+jawt create --alg RS256 --pem @private_key.pem --claim role=admin --claim id=456
 
 # Using a JSON file for the payload
-jwt-tool create --alg HS256 --secret "my-secret" --payload @claims.json
+jawt create --alg HS256 --secret "my-secret" --payload @claims.json
 
 # Output decoded JSON for immediate inspection
-jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" -o json
+jawt create --alg HS256 --secret "my-secret" --sub "user123" -o json
 ```
 
 ### 4. Key Generation
@@ -103,14 +107,14 @@ Generate asymmetric key pairs for JWT signing.
 
 ```bash
 # Generate RSA-2048 (prints to stdout)
-jwt-tool keygen
+jawt keygen
 
 # Generate ECDSA P-384 and save to files
-jwt-tool keygen -a ecdsa -c P384 -f mykey
+jawt keygen -a ecdsa -c P384 -f mykey
 # Results in 'mykey' (private) and 'mykey.pub' (public)
 
 # Generate EdDSA (Ed25519) and save to files
-jwt-tool keygen -a eddsa -f mykey-ed
+jawt keygen -a eddsa -f mykey-ed
 ```
 
 ### 5. JWKS Generation
@@ -118,27 +122,27 @@ Convert public keys to standardized JSON Web Key Sets (JWKS).
 
 ```bash
 # Convert a public key to JWKS
-jwt-tool jwks @rsa_id.pub --kid my-key-id
+jawt jwks @rsa_id.pub --kid my-key-id
 
 # Convert multiple keys to JWKS
-jwt-tool jwks @rsa_id.pub @eddsa.pub --kid rsa-key --kid ed-key
+jawt jwks @rsa_id.pub @eddsa.pub --kid rsa-key --kid ed-key
 ```
 
 ### 6. OIDC & Keycloak Integration
-`jwt-tool` supports generic OpenID Connect (OIDC) providers and includes a special preset for Keycloak.
+`jawt` supports generic OpenID Connect (OIDC) providers and includes a special preset for Keycloak.
 
 #### Generic OIDC
 Use the `oidc` command for any compliant provider.
 
 ```bash
 # Fetch and display discovery info (requires --issuer)
-jwt-tool oidc info --issuer https://accounts.google.com
+jawt oidc info --issuer https://accounts.google.com
 
 # Token Login (client credentials or password)
-jwt-tool oidc login --issuer https://auth.example.com --client-id my-id --client-secret my-secret
+jawt oidc login --issuer https://auth.example.com --client-id my-id --client-secret my-secret
 
 # Token Introspection
-jwt-tool oidc introspect <TOKEN> --issuer https://auth.example.com --client-id my-id --client-secret my-secret
+jawt oidc introspect <TOKEN> --issuer https://auth.example.com --client-id my-id --client-secret my-secret
 ```
 
 #### Keycloak Preset
@@ -146,20 +150,20 @@ The `keycloak` (alias `kc`) command remains available as a convenient shortcut f
 
 ```bash
 # Fetch and display discovery info
-jwt-tool keycloak info --url https://keycloak.example.com --realm myrealm
+jawt keycloak info --url https://keycloak.example.com --realm myrealm
 
 # Token Login
-jwt-tool keycloak login --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
+jawt keycloak login --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
 
 # Token Introspection
-jwt-tool keycloak introspect <TOKEN> --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
+jawt keycloak introspect <TOKEN> --url https://keycloak.example.com --realm myrealm --client-id my-client --client-secret my-secret
 ```
 
 ### 7. Version
 Print the version, commit hash, and build date.
 
 ```bash
-jwt-tool version
+jawt version
 ```
 
 ---
@@ -175,7 +179,7 @@ Toggle between formats using the `-o` or `--output` flag.
 | **OpenID** | `-o openid` | Raw `openid-configuration` JSON from the server (for `oidc info` or `keycloak info`). |
 
 ### JSON Schema Extensions
-When verification is requested, `jwt-tool` adds an `x-validation` field to the JSON output. This follows the industry convention of using an `x-` prefix for tool-specific metadata, ensuring that the original JWT structure (header, payload, signature) remains untampered and clearly separated from the tool's assessment.
+When verification is requested, `jawt` adds an `x-validation` field to the JSON output. This follows the industry convention of using an `x-` prefix for tool-specific metadata, ensuring that the original JWT structure (header, payload, signature) remains untampered and clearly separated from the tool's assessment.
 
 **Example (Failed Verification):**
 ```json
@@ -200,7 +204,7 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `-o, --output <string>`: Output format. Options: `json` (default), `table`, `openid`.
 
 ### `inspect` Flags
-- *Usage: `jwt-tool inspect [token|-|@file] [flags]`*
+- *Usage: `jawt inspect [token|-|@file] [flags]`*
 - `--secret <string>`: Symmetric secret for HMAC verification.
 - `--pem <path>`: Path to RSA/ECDSA/EdDSA public key file (`@path`).
 - `--jwks <uri|path>`: Path or URL to a JWKS.
@@ -214,7 +218,7 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `-f, --file <path>`: Save to file (creates `.pub` for public key). **If omitted, prints both private and public keys to stdout.**
 
 ### `jwks` Flags
-- *Usage: `jwt-tool jwks [key-input]... [flags]`*
+- *Usage: `jawt jwks [key-input]... [flags]`*
 - `--kid <string>`: Key ID for each key (repeatable).
 - `-o, --output <string>`: Output format (only `json` supported for this command).
 
@@ -239,7 +243,7 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `--realm <string>`: Keycloak realm name.
 
 ### `keycloak introspect` Flags
-- *Usage: `jwt-tool keycloak introspect [token|-|@file] [flags]`*
+- *Usage: `jawt keycloak introspect [token|-|@file] [flags]`*
 - `--url <string>`: Keycloak base URL.
 - `--realm <string>`: Keycloak realm name.
 - `--client-id <string>`: Keycloak Client ID.
@@ -255,14 +259,14 @@ When verification is requested, `jwt-tool` adds an `x-validation` field to the J
 - `--scope <string>`: Token scope (default: `openid`).
 
 ### `version`
-- *Usage: `jwt-tool version`*
+- *Usage: `jawt version`*
 - Prints version, commit hash, and build date.
 
 ---
 
 ## 🚦 Exit Codes
 
-`jwt-tool` uses standard exit codes for automation reliability:
+`jawt` uses standard exit codes for automation reliability:
 
 | Code | Meaning |
 | :--- | :--- |

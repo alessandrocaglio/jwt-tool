@@ -6,17 +6,17 @@ import (
 	"os"
 	"time"
 
-	"jwt-tool/internal/formatter"
-	"jwt-tool/internal/jwks"
-	"jwt-tool/internal/keycloak"
-	"jwt-tool/internal/keygen"
-	"jwt-tool/internal/keys"
-	"jwt-tool/internal/oidc"
-	"jwt-tool/internal/remote"
-	"jwt-tool/internal/resolver"
-	"jwt-tool/internal/signer"
-	"jwt-tool/internal/verifier"
-	"jwt-tool/pkg/models"
+	"jawt/internal/formatter"
+	"jawt/internal/jwks"
+	"jawt/internal/keycloak"
+	"jawt/internal/keygen"
+	"jawt/internal/keys"
+	"jawt/internal/oidc"
+	"jawt/internal/remote"
+	"jawt/internal/resolver"
+	"jawt/internal/signer"
+	"jawt/internal/verifier"
+	"jawt/pkg/models"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/cobra"
@@ -95,9 +95,9 @@ func newRootCmd() *cobra.Command {
 	opts := &inspectOptions{}
 
 	rootCmd := &cobra.Command{
-		Use:   "jwt-tool [token|-|@file]",
-		Short: "A security-first JWT inspection and verification CLI",
-		Long: `A security-first JWT inspection and verification CLI.
+		Use:   "jawt [token|-|@file]",
+		Short: "A security-first JAWT inspection and verification CLI",
+		Long: `A security-first JAWT inspection and verification CLI.
 	By default, it inspects the provided token (or reads from stdin if no argument is given).
 	If a verification key is provided (--secret, --pem, or --jwks), it also validates the signature and claims.`,
 		Args: cobra.MaximumNArgs(1),
@@ -410,7 +410,7 @@ func newCreateCmd() *cobra.Command {
 		Short:   "Create and sign a new JWT",
 		Long: `Create and sign a new JWT from scratch.
 	Example:
-	jwt-tool create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h`,
+	jawt create --alg HS256 --secret "my-secret" --sub "user123" --exp 1h`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(cmd, args, opts)
 		},
@@ -437,7 +437,7 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("jwt-tool version: %s\n", version)
+			fmt.Printf("JAWT version: %s\n", version)
 			fmt.Printf("commit: %s\n", commit)
 			fmt.Printf("build date: %s\n", date)
 		},

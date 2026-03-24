@@ -1,6 +1,6 @@
 version: 2
 
-project_name: jwt-tool
+project_name: jawt
 
 before:
   hooks:
@@ -8,9 +8,9 @@ before:
     - go test ./...
 
 builds:
-  - id: jwt-tool
-    main: ./cmd/jwt-tool/
-    binary: jwt-tool
+  - id: jawt
+    main: ./cmd/jawt/
+    binary: jawt
     env:
       - CGO_ENABLED=0
     goos:
@@ -39,7 +39,7 @@ checksum:
 release:
   github:
     owner: alessandrocaglio
-    name: jwt-tool
+    name: jawt
 
 changelog:
   sort: asc
@@ -51,7 +51,7 @@ changelog:
 # dockers_v2:
 #   - id: katalog
 #     images:
-#       - "quay.io/acaglio/jwt-tool"
+#       - "quay.io/acaglio/jawt"
 #     tags:
 #       - "{{ .Tag }}"
 #       - latest

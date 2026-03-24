@@ -9,25 +9,25 @@ import (
 	"path/filepath"
 	"testing"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 var binaryPath string
 
 func TestMain(m *testing.M) {
 	// Build the binary once for all tests
-	tmpDir, err := os.MkdirTemp("", "jwt-tool-test-*")
+	tmpDir, err := os.MkdirTemp("", "jawt-test-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
 		os.Exit(1)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	binaryPath = filepath.Join(tmpDir, "jwt-tool")
+	binaryPath = filepath.Join(tmpDir, "jawt")
 	// Adjust path to main.go based on where tests are run (likely tests/integration)
-	build := exec.Command("go", "build", "-o", binaryPath, "../../cmd/jwt-tool/main.go")
+	build := exec.Command("go", "build", "-o", binaryPath, "../../cmd/jawt/main.go")
 	if err := build.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to build jwt-tool: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to build jawt: %v\n", err)
 		os.Exit(1)
 	}
 

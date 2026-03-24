@@ -1,4 +1,4 @@
-module jwt-tool
+module jawt
 
 go 1.25.0
 

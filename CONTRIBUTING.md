@@ -1,14 +1,14 @@
-# Contributing to jwt-tool
+# Contributing to jawt
 
-First off, thank you for considering contributing to `jwt-tool`! It's people like you that make it a great tool.
+First off, thank you for considering contributing to `jawt`! It's people like you that make it a great tool.
 
 ## 🛠 Development Setup
 
 1.  **Fork the repository** on GitHub.
 2.  **Clone your fork** locally:
     ```bash
-    git clone https://github.com/YOUR_USERNAME/jwt-tool.git
-    cd jwt-tool
+    git clone https://github.com/YOUR_USERNAME/jawt.git
+    cd jawt
     ```
 3.  **Install dependencies**:
     ```bash

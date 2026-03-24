@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-jose/go-jose/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 // VerifyOptions defines the parameters for signature and claims verification.

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 // Decode parses a JWT string without verifying the signature.

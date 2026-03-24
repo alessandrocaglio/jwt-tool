@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 // IntrospectRaw performs the introspection and returns the raw JSON bytes.
