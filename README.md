@@ -1,7 +1,7 @@
 # JAWT 🛠️
 
 <p align="center">
-  <img src="assets/jawt-logo.png" alt="JAWT Logo" width="300">
+  <img src="assets/jawt-logo-black.png" alt="JAWT Logo" width="300">
 </p>
 
 A security-first JWT CLI for developers and platform engineers for inspecting and verifying JSON Web Tokens (JWT). Built with Go for speed, reliability, and ease of use in both manual workflows and automated pipelines.
