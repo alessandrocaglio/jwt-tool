@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 func TestIntrospect(t *testing.T) {

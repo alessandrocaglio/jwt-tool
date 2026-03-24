@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 var (

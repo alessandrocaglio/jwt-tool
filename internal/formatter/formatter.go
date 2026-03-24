@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"

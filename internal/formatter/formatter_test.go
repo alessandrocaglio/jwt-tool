@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 func TestIsTimestampKey(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"jwt-tool/internal/oidc"
-	"jwt-tool/pkg/models"
+	"jawt/internal/oidc"
+	"jawt/pkg/models"
 )
 
 // FetchDiscoveryRaw fetches the raw OIDC discovery document for a Keycloak realm.

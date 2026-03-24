@@ -1,8 +1,8 @@
 package keycloak
 
 import (
-	"jwt-tool/internal/oidc"
-	"jwt-tool/pkg/models"
+	"jawt/internal/oidc"
+	"jawt/pkg/models"
 )
 
 // IntrospectRaw performs the introspection and returns the raw JSON bytes.

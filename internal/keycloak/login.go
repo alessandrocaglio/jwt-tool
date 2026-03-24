@@ -1,8 +1,8 @@
 package keycloak
 
 import (
-	"jwt-tool/internal/oidc"
-	"jwt-tool/pkg/models"
+	"jawt/internal/oidc"
+	"jawt/pkg/models"
 )
 
 // LoginOptions holds parameters for the login request.

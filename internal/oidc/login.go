@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"jwt-tool/pkg/models"
+	"jawt/pkg/models"
 )
 
 // LoginOptions holds parameters for the login request.
